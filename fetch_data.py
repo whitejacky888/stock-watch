@@ -15,13 +15,18 @@ HTMLページが返ってきてしまうことが分かりました。
 切り替えました。yfinanceはAPIキーなどの登録も不要です。
 
 【このファイルでやっていること(全体の流れ)】
-  1. config.py から「取得したいティッカーの一覧」を読み込む
+  1. watchlist.py から「取得したいティッカーの一覧」を読み込む(呼び出し元から渡される)
   2. ティッカー(指数・銘柄)を1つずつ、yfinance経由でデータを取得する
   3. 取得したデータの必要な列だけを取り出し、CSVファイルとして保存する
   4. うまくいかなかった場合は、エラーの内容を分かりやすく表示する
 
-このファイル単体で実行すると、データ取得だけを行います。
+このファイル単体で実行すると、watchlist.json に登録されている
+すべての銘柄(非表示中のものも含む)のデータ取得だけを行います。
     python fetch_data.py
+
+※ フェーズ2より、「非表示」の銘柄もデータ取得は続けています
+  (表示のON/OFFと、データ取得の有無は別の話にしているためです。
+   こうしておくと、再表示したときにすぐ最新のグラフが見られます)。
 """
 
 import os
@@ -30,6 +35,7 @@ import datetime
 import yfinance as yf  # pip install yfinance でインストールするライブラリ
 
 import config  # 同じフォルダにある config.py を読み込む(設定値をまとめて使うため)
+import watchlist  # ウォッチリスト(追跡する銘柄の一覧)を管理するファイル
 
 
 def fetch_one_ticker(ticker, date_from, date_to):
@@ -41,7 +47,7 @@ def fetch_one_ticker(ticker, date_from, date_to):
     引数(Parameters)
     ----------
     ticker : dict
-        config.py の TICKERS の中の1件分(key, label, symbol, kind を持つ)
+        watchlist.json の中の1件分(key, label, symbol, kind などを持つ)
     date_from : datetime.date
         取得したい期間の開始日
     date_to : datetime.date
@@ -71,10 +77,15 @@ def fetch_one_ticker(ticker, date_from, date_to):
     return history
 
 
-def fetch_all():
+def fetch_all(tickers):
     """
-    config.py に登録されているすべてのティッカーのデータを取得し、
+    渡された「ティッカーの一覧(リスト)」のデータを取得し、
     data/ フォルダにCSVファイルとして保存するメインの処理。
+
+    引数(Parameters)
+    ----------
+    tickers : list of dict
+        watchlist.load_watchlist() が返すウォッチリスト(またはその一部)
     """
     # 保存先フォルダがなければ作る(exist_ok=True: すでにあってもエラーにしない)
     os.makedirs(config.DATA_DIR, exist_ok=True)
@@ -88,7 +99,7 @@ def fetch_all():
     print("-" * 50)
 
     success_count = 0
-    for ticker in config.TICKERS:
+    for ticker in tickers:
         history = fetch_one_ticker(ticker, date_from, date_to)
         if history is None:
             continue  # このティッカーは失敗。for文の次のティッカーに進む
@@ -109,7 +120,7 @@ def fetch_all():
         success_count += 1
 
     print("-" * 50)
-    print("完了: " + str(success_count) + " / " + str(len(config.TICKERS)) + " 件のデータを取得しました。")
+    print("完了: " + str(success_count) + " / " + str(len(tickers)) + " 件のデータを取得しました。")
     print("保存先フォルダ: " + os.path.abspath(config.DATA_DIR))
 
     if success_count == 0:
@@ -126,4 +137,4 @@ def fetch_all():
 #  Pythonの定番テクニックです)
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    fetch_all()
+    fetch_all(watchlist.load_watchlist())

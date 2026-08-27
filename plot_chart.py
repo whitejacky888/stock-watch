@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
 import config
+import watchlist  # ウォッチリスト(追跡する銘柄の一覧)を管理するファイル
 
 
 def find_japanese_font():
@@ -63,7 +64,7 @@ def load_series(ticker):
     with open(file_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
 
-        # stooq のCSVは通常 "Date,Open,High,Low,Close,Volume" という列名だが、
+        # fetch_data.py が保存するCSVは通常 "Date,Open,High,Low,Close,Volume" という列名だが、
         # 念のため大文字・小文字を区別せずに列を探せるようにしておく
         fieldnames = reader.fieldnames or []
         lower_to_original = {}
@@ -107,10 +108,18 @@ def to_percent_change(closes):
     return result
 
 
-def plot_all():
+def plot_all(tickers):
     """
-    config.py の全ティッカーについてデータを読み込み、
+    渡された「ティッカーの一覧(リスト)」についてデータを読み込み、
     1つのグラフに重ねて折れ線グラフを描画する処理。
+
+    引数(Parameters)
+    ----------
+    tickers : list of dict
+        グラフに表示したいティッカーの一覧。
+        フェーズ2からは、呼び出し元(main.py)で「非表示(hidden)」の
+        ものをあらかじめ除いたリストを渡す想定です
+        (このグラフ側では hidden かどうかは見ていません)。
     """
     font_name = find_japanese_font()
     if font_name:
@@ -124,7 +133,7 @@ def plot_all():
     fig, ax = plt.subplots(figsize=(12, 6))
 
     plotted_count = 0
-    for ticker in config.TICKERS:
+    for ticker in tickers:
         dates, closes = load_series(ticker)
         if dates is None:
             continue  # このティッカーはスキップして、次のティッカーへ
@@ -151,7 +160,7 @@ def plot_all():
     # 0%の位置に基準線を引く(上がっているか下がっているか一目でわかるように)
     ax.axhline(0, color="gray", linewidth=1, linestyle=":")
 
-    ax.set_title("値動きウォッチ(実データ版・フェーズ1試作)", fontsize=14)
+    ax.set_title("値動きウォッチ(実データ版・フェーズ2)", fontsize=14)
     ax.set_xlabel("日付")
     ax.set_ylabel("変化率(%) ※期間の始点を0%とした変化率")
     ax.legend(loc="upper left", fontsize=8, ncol=2)
@@ -179,4 +188,8 @@ def plot_all():
 
 
 if __name__ == "__main__":
-    plot_all()
+    # このファイル単体で実行したときは、非表示中のものを除いた
+    # ウォッチリストをそのままグラフ表示する
+    items = watchlist.load_watchlist()
+    visible_items = [item for item in items if not item["hidden"]]
+    plot_all(visible_items)

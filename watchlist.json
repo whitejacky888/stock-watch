@@ -1,0 +1,137 @@
+[
+  {
+    "key": "nikkei",
+    "label": "日経平均株価",
+    "symbol": "^N225",
+    "kind": "index",
+    "market": "-",
+    "business": "東証プライムの代表的な225銘柄から算出される、日本を代表する株価指数",
+    "hidden": false
+  },
+  {
+    "key": "nasdaq",
+    "label": "NASDAQ総合指数",
+    "symbol": "^IXIC",
+    "kind": "index",
+    "market": "-",
+    "business": "米国NASDAQ市場に上場する銘柄から算出される株価指数(IT・ハイテク企業が多い)",
+    "hidden": false
+  },
+  {
+    "key": "keycoffee",
+    "label": "キーコーヒー",
+    "symbol": "2594.T",
+    "kind": "company",
+    "market": "東証スタンダード",
+    "business": "コーヒー製品の製造・販売",
+    "hidden": false
+  },
+  {
+    "key": "kameda",
+    "label": "亀田製菓",
+    "symbol": "2220.T",
+    "kind": "company",
+    "market": "東証プライム",
+    "business": "米菓(せんべい・柿の種など)の製造・販売",
+    "hidden": false
+  },
+  {
+    "key": "takeda",
+    "label": "武田薬品工業",
+    "symbol": "4502.T",
+    "kind": "company",
+    "market": "東証プライム",
+    "business": "国内最大手の医薬品メーカー",
+    "hidden": false
+  },
+  {
+    "key": "itoen",
+    "label": "伊藤園",
+    "symbol": "2593.T",
+    "kind": "company",
+    "market": "東証プライム",
+    "business": "緑茶飲料など飲料の製造・販売(「お〜いお茶」など)",
+    "hidden": false
+  },
+  {
+    "key": "sekiko",
+    "label": "石光商事",
+    "symbol": "2750.T",
+    "kind": "company",
+    "market": "東証スタンダード",
+    "business": "コーヒー・食品原材料の輸入・卸売",
+    "hidden": false
+  },
+  {
+    "key": "colowide",
+    "label": "コロワイド",
+    "symbol": "7616.T",
+    "kind": "company",
+    "market": "東証プライム",
+    "business": "「牛角」などを展開する外食チェーン",
+    "hidden": false
+  },
+  {
+    "key": "orix",
+    "label": "オリックス",
+    "symbol": "8591.T",
+    "kind": "company",
+    "market": "東証プライム",
+    "business": "リース・金融・保険など幅広く手がける総合金融グループ",
+    "hidden": false
+  },
+  {
+    "key": "uoki",
+    "label": "魚喜",
+    "symbol": "2683.T",
+    "kind": "company",
+    "market": "東証スタンダード",
+    "business": "水産物・食品の卸売",
+    "hidden": false
+  },
+  {
+    "key": "tsukiji",
+    "label": "築地魚市場",
+    "symbol": "8039.T",
+    "kind": "company",
+    "market": "東証スタンダード",
+    "business": "水産物の卸売(築地市場を拠点とする卸売業者)",
+    "hidden": false
+  },
+  {
+    "key": "itoham",
+    "label": "伊藤ハム米久ホールディングス",
+    "symbol": "2296.T",
+    "kind": "company",
+    "market": "東証プライム",
+    "business": "ハム・ソーセージなど食肉加工品の大手(伊藤ハムの持株会社)",
+    "hidden": false
+  },
+  {
+    "key": "yokohamagyorui",
+    "label": "横浜魚類",
+    "symbol": "7443.T",
+    "kind": "company",
+    "market": "東証スタンダード",
+    "business": "水産物の卸売(横浜市中央卸売市場を拠点)",
+    "hidden": false
+  },
+  {
+    "key": "sony",
+    "label": "ソニーグループ",
+    "symbol": "6758.T",
+    "kind": "company",
+    "market": "東証プライム",
+    "business": "エレクトロニクス・ゲーム・映画・金融など幅広く手がけるグループ",
+    "hidden": false
+  },
+  {
+    "key": "nvda",
+    "label": "NVIDIA Corporation",
+    "symbol": "NVDA",
+    "kind": "company",
+    "market": "不明",
+    "business": "(未入力)",
+    "hidden": false
+  }
+]
