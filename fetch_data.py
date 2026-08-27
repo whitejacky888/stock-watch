@@ -1,13 +1,23 @@
 """
 fetch_data.py
 ------------------------------------------------------------
-stooq.com から、config.py で指定した指数・銘柄の株価データを
-CSV形式でダウンロードして、data/ フォルダにファイルとして保存するプログラムです。
+yfinance ライブラリを使って、config.py で指定した指数・銘柄の株価データを
+取得し、CSV形式で data/ フォルダにファイルとして保存するプログラムです。
+
+【なぜstooq.comからyfinanceに変更したのか】
+最初はstooq.comというサイトから直接データをダウンロードしていましたが、
+実際に動かしてみたところ、stooq側の「プログラムからの機械的なアクセスを
+検知してブロックする仕組み(bot対策)」に引っかかり、本物のデータの代わりに
+「ブラウザで見てください(JavaScriptを有効にしてください)」という案内の
+HTMLページが返ってきてしまうことが分かりました。
+そこで、株価データ取得のために広く使われているPythonライブラリ
+「yfinance」(米国版Yahoo Finance経由でデータを取得するライブラリ)に
+切り替えました。yfinanceはAPIキーなどの登録も不要です。
 
 【このファイルでやっていること(全体の流れ)】
-  1. config.py から「取得したいティッカーの一覧」と「APIキー」を読み込む
-  2. ティッカー(指数・銘柄)を1つずつ、stooq.com にリクエスト(お願い)を送る
-  3. 返ってきたCSVのテキストをファイルとして保存する
+  1. config.py から「取得したいティッカーの一覧」を読み込む
+  2. ティッカー(指数・銘柄)を1つずつ、yfinance経由でデータを取得する
+  3. 取得したデータの必要な列だけを取り出し、CSVファイルとして保存する
   4. うまくいかなかった場合は、エラーの内容を分かりやすく表示する
 
 このファイル単体で実行すると、データ取得だけを行います。
@@ -17,87 +27,48 @@ CSV形式でダウンロードして、data/ フォルダにファイルとし�
 import os
 import datetime
 
-import requests  # インターネット上のデータを取得するための定番ライブラリ
+import yfinance as yf  # pip install yfinance でインストールするライブラリ
 
 import config  # 同じフォルダにある config.py を読み込む(設定値をまとめて使うため)
 
 
-def build_stooq_url(symbol, date_from, date_to):
+def fetch_one_ticker(ticker, date_from, date_to):
     """
-    stooq.com からCSVデータをダウンロードするためのURLを組み立てる関数。
+    ティッカー1件分の株価データを取得し、pandasの「DataFrame」
+    (表形式のデータを扱う入れ物)として返す関数。
+    取得に失敗した場合は None(「何もない」を表すPythonの特別な値)を返す。
 
     引数(Parameters)
     ----------
-    symbol : str
-        stooq.com上のシンボル(例: "^nkx", "6758.jp")
-    date_from : str
-        取得したい期間の開始日("20250101" のようなYYYYMMDD形式)
-    date_to : str
-        取得したい期間の終了日(同上)
-
-    戻り値(Returns)
-    -------
-    str
-        完成したURL文字列
+    ticker : dict
+        config.py の TICKERS の中の1件分(key, label, symbol, kind を持つ)
+    date_from : datetime.date
+        取得したい期間の開始日
+    date_to : datetime.date
+        取得したい期間の終了日(この日を含む)
     """
-    # stooq.com のCSVダウンロード用エンドポイント(URLの決まった形)
-    #   s      = シンボル(何のデータが欲しいか)
-    #   i      = 間隔("d"=日次、"w"=週次、"m"=月次)
-    #   d1, d2 = 取得したい期間の開始日・終了日(YYYYMMDD形式)
-    #   apikey = 個人のAPIキー(2026年4月以降、stooq側の仕様変更により必須)
-    base_url = "https://stooq.com/q/d/l/"
-    query = (
-        "?s=" + symbol
-        + "&i=d"
-        + "&d1=" + date_from
-        + "&d2=" + date_to
-        + "&apikey=" + config.STOOQ_API_KEY
-    )
-    return base_url + query
-
-
-def fetch_one_ticker(ticker, date_from, date_to):
-    """
-    ティッカー1件分のCSVデータをダウンロードし、テキストとして返す関数。
-    取得に失敗した場合は None(「何もない」を表すPythonの特別な値)を返す。
-    """
-    url = build_stooq_url(ticker["symbol"], date_from, date_to)
     print("  取得中: " + ticker["label"] + " (" + ticker["symbol"] + ") ...")
 
     try:
-        # timeout=15 : 15秒たっても応答がなければあきらめる(プログラムが固まるのを防ぐ)
-        # headers を付けているのは、一部のサイトが「ブラウザ以外からのアクセス」を
-        # 拒否することがあるための、念のための対策
-        response = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-    except requests.exceptions.RequestException as e:
-        # ネットワークエラー(ネットに繋がっていない、サーバーが応答しない等)
-        print("    x ネットワークエラー: " + str(e))
+        yf_ticker = yf.Ticker(ticker["symbol"])
+        # yfinanceの end は「その日を含まない」仕様なので、
+        # date_to の翌日を指定することで date_to 当日分まで取得できるようにする
+        history = yf_ticker.history(
+            start=date_from,
+            end=date_to + datetime.timedelta(days=1),
+        )
+    except Exception as e:
+        # ネットワークエラーや、yfinance内部のエラーなどをまとめて受け止める
+        print("    x 取得中にエラーが発生しました: " + str(e))
         return None
 
-    if response.status_code != 200:
-        print("    x サーバーからエラーが返されました(HTTP " + str(response.status_code) + ")")
-        return None
-
-    csv_text = response.text
-
-    # APIキーが未設定・間違っている場合、stooqはCSVの代わりに
-    # 「apikey」や「exceeded(制限を超えました)」といった文字を含む
-    # エラーメッセージを返してくることがあるので、それを検出する
-    lowered = csv_text.lower()
-    if "apikey" in lowered or "exceeded" in lowered:
-        print("    x APIキーが未設定か、正しくない可能性があります。")
-        print("      config.py の STOOQ_API_KEY を確認してください。")
-        print("      (サーバーからの応答の先頭: " + repr(csv_text[:120]) + ")")
-        return None
-
-    # データが1行(見出しの行)しかない、または空っぽ ＝ 実質エラーなのではじく
-    lines = csv_text.strip().splitlines()
-    if len(lines) < 2:
+    if history.empty:
         print("    x データが取得できませんでした(空のデータが返ってきました)。")
+        print("      config.py の symbol(銘柄コード)が正しいか確認してください。")
         return None
 
-    print("    OK 取得成功(" + str(len(lines) - 1) + "日分)")
-    return csv_text
+    print("    OK 取得成功(" + str(len(history)) + "日分)")
+    return history
 
 
 def fetch_all():
@@ -105,35 +76,35 @@ def fetch_all():
     config.py に登録されているすべてのティッカーのデータを取得し、
     data/ フォルダにCSVファイルとして保存するメインの処理。
     """
-    # APIキーが設定されていない場合は、通信する前に教えてあげる(早めに気づけるように)
-    if not config.STOOQ_API_KEY:
-        print("x STOOQ_API_KEY が設定されていません。")
-        print("  1. .env.example を .env という名前でコピーする")
-        print("  2. .env の中にAPIキーを貼り付けて保存する")
-        print("  (詳しい手順は README.md を参照してください)")
-        return
-
     # 保存先フォルダがなければ作る(exist_ok=True: すでにあってもエラーにしない)
     os.makedirs(config.DATA_DIR, exist_ok=True)
 
     # 取得する期間を計算する(「今日」から DAYS_BACK 日さかのぼる)
     today = datetime.date.today()
-    date_from = (today - datetime.timedelta(days=config.DAYS_BACK)).strftime("%Y%m%d")
-    date_to = today.strftime("%Y%m%d")
+    date_from = today - datetime.timedelta(days=config.DAYS_BACK)
+    date_to = today
 
-    print("データ取得期間: " + date_from + " 〜 " + date_to)
+    print("データ取得期間: " + date_from.strftime("%Y-%m-%d") + " 〜 " + date_to.strftime("%Y-%m-%d"))
     print("-" * 50)
 
     success_count = 0
     for ticker in config.TICKERS:
-        csv_text = fetch_one_ticker(ticker, date_from, date_to)
-        if csv_text is None:
+        history = fetch_one_ticker(ticker, date_from, date_to)
+        if history is None:
             continue  # このティッカーは失敗。for文の次のティッカーに進む
 
+        # yfinanceが返す表には Open/High/Low/Close/Volume 以外に
+        # Dividends(配当)や Stock Splits(株式分割)といった列も含まれるが、
+        # 本ツールで使うのは値動きに関する5列だけなので、それだけを取り出す
+        columns_to_keep = ["Open", "High", "Low", "Close", "Volume"]
+        trimmed = history[columns_to_keep]
+
         # ファイル名は「key.csv」にする(例: nikkei.csv, sony.csv)
+        # index_label="Date" : 日付(表の一番左の列)の見出しを "Date" にする
+        # date_format="%Y-%m-%d" : 日付を "2026-08-27" のような形式で保存する
+        #   (plot_chart.py がこの形式を前提に読み込むため)
         file_path = os.path.join(config.DATA_DIR, ticker["key"] + ".csv")
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(csv_text)
+        trimmed.to_csv(file_path, index_label="Date", date_format="%Y-%m-%d")
 
         success_count += 1
 
@@ -144,8 +115,9 @@ def fetch_all():
     if success_count == 0:
         print("")
         print("※ 1件も取得できませんでした。よくある原因:")
-        print("   ・config.py の STOOQ_API_KEY が空、または間違っている")
         print("   ・インターネットに接続されていない")
+        print("   ・yfinanceのバージョンが古い(以下のコマンドで更新してみてください)")
+        print("     pip install --upgrade yfinance")
 
 
 # ------------------------------------------------------------

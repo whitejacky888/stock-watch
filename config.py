@@ -7,84 +7,55 @@
 # こうしておくと、他のファイル(fetch_data.py や plot_chart.py)の
 # 中身を触らなくても、ここだけ直せば動きが変えられます。
 #
-# ※ GitHubにpushする話が出たので、APIキーだけはこのファイルに
-#    直接書かず、".env"という別ファイルから読み込む形に変更しました
-#    (理由は下の「① stooq.com のAPIキー」の説明を参照)。
+# ※ 2026年8月:データ取得元をstooq.comからyfinanceに変更しました。
+#    (理由:stooq.comがプログラムからの自動アクセスをブロックする対策を
+#     しており、安定してデータを取得できなくなったため)
+#    yfinanceはAPIキーなどの秘密の値が不要なため、以前あった
+#    「stooq.comのAPIキー」の設定はこのファイルから削除しています。
+#    (.env や .gitignore の仕組み自体は、将来ニュースAPIなど別の
+#     秘密の値が必要になったときのために残してあります)
 # ==============================================================
 
-import os
-import dotenv  # pip install python-dotenv でインストールするライブラリ
-
-# ---- ① stooq.com のAPIキー ----
-# stooq.com は 2026年4月頃から、データ取得に「APIキー」が必要になりました。
-#
-# 【なぜ config.py に直接書かないのか】
-# GitHubなどにコードを公開(push)すると、その中に書かれた文字は
-# 世界中の誰でも見られるようになります。もしAPIキーをコードに直接書いてしまうと、
-# 他人がそのキーを使って勝手にアクセスしたり、キーが使えなくされたりする
-# 危険があります。そこで、キーのような「秘密の値」は、
-#   ・".env" という専用のファイルに書く
-#   ・".env" は ".gitignore" に登録して、GitHubには絶対に上げない
-# という形にするのが定番のやり方です(このプロジェクトでも .gitignore に
-# ".env" を登録済みです)。
-#
-# 【セットアップ手順】
-#   1. ブラウザで次のURLを開く(例:ソニーグループのページ)
-#      https://stooq.com/q/d/?s=6758.jp&get_apikey
-#   2. 画像認証(CAPTCHA)が出てきたら解く
-#   3. 表示された画面や、その後にダウンロードされるCSVのURLの中に
-#      「apikey=◯◯◯◯◯◯」という文字列があるので、◯◯◯◯◯◯の部分をコピーする
-#   4. このフォルダにある ".env.example" というファイルをコピーして、
-#      ".env" という名前のファイルを作る
-#   5. ".env" の中の STOOQ_API_KEY=ここに貼り付け の部分に、
-#      コピーしたキーを貼り付けて保存する
-#
-# dotenv.load_dotenv() は、".env" ファイルの中身を読み込んで、
-# プログラムが使える「環境変数」という仕組みに登録してくれる関数です。
-dotenv.load_dotenv()
-
-# os.environ.get(名前, 見つからなかった時の値) で環境変数を取り出す。
-# ".env" ファイルを作り忘れている場合は、空文字("")が入る。
-STOOQ_API_KEY = os.environ.get("STOOQ_API_KEY", "")
-
-
-# ---- ② 追跡する指数・銘柄の一覧 ----
+# ---- ① 追跡する指数・銘柄の一覧 ----
 # 「基本の2指数」+「組み込み済み12社」(要件定義書 v0.6 の7.1節に対応)
 #
 # 各項目の意味:
 #   key    : プログラム内部で使う短い識別名(英数字。ファイル名にも使う)
 #   label  : グラフに表示する日本語の名前
-#   symbol : stooq.com 上でのシンボル(このコードでデータを検索する)
+#   symbol : yfinance(米国版Yahoo Finance経由)で使うシンボル
+#            日本株は証券コードの後ろに ".T"(東証)を付ける(例: 6758.T)
+#            指数は "^" で始まる特別な記号を使う(例: 日経平均=^N225)
 #   kind   : "index"(指数) か "company"(個別銘柄)か
 #            → グラフの線の種類(点線/実線)を変えるのに使う
 #
 # 新しい銘柄を追加したいときは、このリストに同じ形式で1行足すだけでOKです。
+# (日本株の証券コードが分かれば、末尾に ".T" を付けるだけで大抵は使えます)
 TICKERS = [
     # ---- 基本の2指数 ----
-    {"key": "nikkei", "label": "日経平均株価", "symbol": "^nkx", "kind": "index"},
-    {"key": "nasdaq", "label": "NASDAQ総合指数", "symbol": "^ndq", "kind": "index"},
+    {"key": "nikkei", "label": "日経平均株価", "symbol": "^N225", "kind": "index"},
+    {"key": "nasdaq", "label": "NASDAQ総合指数", "symbol": "^IXIC", "kind": "index"},
 
     # ---- 組み込み済み12社(要件定義書 7.1節の表と対応) ----
-    {"key": "keycoffee", "label": "キーコーヒー", "symbol": "2594.jp", "kind": "company"},
-    {"key": "kameda", "label": "亀田製菓", "symbol": "2220.jp", "kind": "company"},
-    {"key": "takeda", "label": "武田薬品工業", "symbol": "4502.jp", "kind": "company"},
-    {"key": "itoen", "label": "伊藤園", "symbol": "2593.jp", "kind": "company"},
-    {"key": "sekiko", "label": "石光商事", "symbol": "2750.jp", "kind": "company"},
-    {"key": "colowide", "label": "コロワイド", "symbol": "7616.jp", "kind": "company"},
-    {"key": "orix", "label": "オリックス", "symbol": "8591.jp", "kind": "company"},
-    {"key": "uoki", "label": "魚喜", "symbol": "2683.jp", "kind": "company"},
-    {"key": "tsukiji", "label": "築地魚市場", "symbol": "8039.jp", "kind": "company"},
-    {"key": "itoham", "label": "伊藤ハム米久ホールディングス", "symbol": "2296.jp", "kind": "company"},
-    {"key": "yokohamagyorui", "label": "横浜魚類", "symbol": "7443.jp", "kind": "company"},
-    {"key": "sony", "label": "ソニーグループ", "symbol": "6758.jp", "kind": "company"},
+    {"key": "keycoffee", "label": "キーコーヒー", "symbol": "2594.T", "kind": "company"},
+    {"key": "kameda", "label": "亀田製菓", "symbol": "2220.T", "kind": "company"},
+    {"key": "takeda", "label": "武田薬品工業", "symbol": "4502.T", "kind": "company"},
+    {"key": "itoen", "label": "伊藤園", "symbol": "2593.T", "kind": "company"},
+    {"key": "sekiko", "label": "石光商事", "symbol": "2750.T", "kind": "company"},
+    {"key": "colowide", "label": "コロワイド", "symbol": "7616.T", "kind": "company"},
+    {"key": "orix", "label": "オリックス", "symbol": "8591.T", "kind": "company"},
+    {"key": "uoki", "label": "魚喜", "symbol": "2683.T", "kind": "company"},
+    {"key": "tsukiji", "label": "築地魚市場", "symbol": "8039.T", "kind": "company"},
+    {"key": "itoham", "label": "伊藤ハム米久ホールディングス", "symbol": "2296.T", "kind": "company"},
+    {"key": "yokohamagyorui", "label": "横浜魚類", "symbol": "7443.T", "kind": "company"},
+    {"key": "sony", "label": "ソニーグループ", "symbol": "6758.T", "kind": "company"},
 ]
 
 
-# ---- ③ 取得するデータの期間 ----
+# ---- ② 取得するデータの期間 ----
 # 何日分さかのぼってデータを取るか(株式市場の営業日ではなく、暦日で指定)
 DAYS_BACK = 400  # 約400日(1年強)分をさかのぼって取得する
 
 
-# ---- ④ データの保存先フォルダ ----
+# ---- ③ データの保存先フォルダ ----
 # fetch_data.py が取得したCSVをここに保存し、plot_chart.py がここから読み込む
 DATA_DIR = "data"
