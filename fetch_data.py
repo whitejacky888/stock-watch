@@ -105,6 +105,14 @@ def fetch_all():
     config.py に登録されているすべてのティッカーのデータを取得し、
     data/ フォルダにCSVファイルとして保存するメインの処理。
     """
+    # APIキーが設定されていない場合は、通信する前に教えてあげる(早めに気づけるように)
+    if not config.STOOQ_API_KEY:
+        print("x STOOQ_API_KEY が設定されていません。")
+        print("  1. .env.example を .env という名前でコピーする")
+        print("  2. .env の中にAPIキーを貼り付けて保存する")
+        print("  (詳しい手順は README.md を参照してください)")
+        return
+
     # 保存先フォルダがなければ作る(exist_ok=True: すでにあってもエラーにしない)
     os.makedirs(config.DATA_DIR, exist_ok=True)
 
