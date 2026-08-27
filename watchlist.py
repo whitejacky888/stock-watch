@@ -26,7 +26,17 @@ watchlist.json をVS Codeで直接開いて中身を覗いてみてください�
     "market":  "東証プライム",         # 市場区分(個別銘柄のみ。指数は "-")
     "business": "エレクトロニクス・ゲーム・映画・金融など幅広く手がけるグループ",
     "hidden":  False,               # True なら「非表示」中
+    "color":   "#e6194b",           # グラフの線の色(この会社専用に固定・下記コラム参照)
 }
+
+【グラフの色を「会社ごとに固定」にしている理由】
+以前は、グラフを描くmatplotlib(マットプロットリブ)というライブラリの
+「自動で色を割り当てる機能」に任せていました。しかしこれは、
+「そのとき画面に表示されている順番」に沿って色を割り振る仕組みのため、
+銘柄を非表示にしたり追加したりして表示順が変わるたびに、
+同じ会社でも違う色になってしまう、という問題がありました。
+そこで、会社ごとに「専用の色」を1つ決めて watchlist.json に保存しておき、
+常にその色を使う(=表示順が変わっても色は変わらない)ようにしています。
 """
 
 import json
@@ -39,6 +49,42 @@ WATCHLIST_FILE = "watchlist.json"
 # 個別銘柄として同時に登録できる最大数(要件定義書 7.1節)
 MAX_COMPANIES = 15
 
+# ---- グラフの色パレット ----
+# 基本の2指数(2件)+ 個別銘柄(最大15件)= 最大17件を、すべて見分けやすい
+# 色にできるように、17色ぶんの「はっきり違う色」を用意しています。
+# (人間の目で見て区別しやすいよう、あえて似た色同士が並ばないようにしています)
+COLOR_PALETTE = [
+    "#e6194b",  # 赤
+    "#3cb44b",  # 緑
+    "#4363d8",  # 青
+    "#f58231",  # オレンジ
+    "#911eb4",  # 紫
+    "#46f0f0",  # シアン
+    "#f032e6",  # マゼンタ
+    "#9a6324",  # 茶
+    "#800000",  # マルーン
+    "#808000",  # オリーブ
+    "#000075",  # ネイビー
+    "#808080",  # グレー
+    "#000000",  # 黒
+    "#bcf60c",  # ライム
+    "#008080",  # ティール
+    "#c71585",  # 濃いピンク
+    "#b8860b",  # ダークゴールド
+]
+
+
+def _pick_unused_color(items):
+    """
+    現在ウォッチリストで使われていない色を、パレットから1つ選ぶ関数。
+    (最大17件までしか登録できない仕様なので、パレットが尽きることはない)
+    """
+    used = set(item.get("color") for item in items if item.get("color"))
+    for color in COLOR_PALETTE:
+        if color not in used:
+            return color
+    return COLOR_PALETTE[0]  # 万が一すべて使われていた場合の保険(通常は起こらない)
+
 
 def _default_watchlist():
     """
@@ -50,37 +96,48 @@ def _default_watchlist():
         # ---- 基本の2指数(削除はできない。非表示のみ可能) ----
         {"key": "nikkei", "label": "日経平均株価", "symbol": "^N225", "kind": "index",
          "market": "-", "business": "東証プライムの代表的な225銘柄から算出される、日本を代表する株価指数",
-         "hidden": False},
+         "hidden": False, "color": COLOR_PALETTE[0]},
         {"key": "nasdaq", "label": "NASDAQ総合指数", "symbol": "^IXIC", "kind": "index",
          "market": "-", "business": "米国NASDAQ市場に上場する銘柄から算出される株価指数(IT・ハイテク企業が多い)",
-         "hidden": False},
+         "hidden": False, "color": COLOR_PALETTE[1]},
 
         # ---- 組み込み済み12社(要件定義書 7.1節の表と対応) ----
         {"key": "keycoffee", "label": "キーコーヒー", "symbol": "2594.T", "kind": "company",
-         "market": "東証スタンダード", "business": "コーヒー製品の製造・販売", "hidden": False},
+         "market": "東証スタンダード", "business": "コーヒー製品の製造・販売", "hidden": False,
+         "color": COLOR_PALETTE[2]},
         {"key": "kameda", "label": "亀田製菓", "symbol": "2220.T", "kind": "company",
-         "market": "東証プライム", "business": "米菓(せんべい・柿の種など)の製造・販売", "hidden": False},
+         "market": "東証プライム", "business": "米菓(せんべい・柿の種など)の製造・販売", "hidden": False,
+         "color": COLOR_PALETTE[3]},
         {"key": "takeda", "label": "武田薬品工業", "symbol": "4502.T", "kind": "company",
-         "market": "東証プライム", "business": "国内最大手の医薬品メーカー", "hidden": False},
+         "market": "東証プライム", "business": "国内最大手の医薬品メーカー", "hidden": False,
+         "color": COLOR_PALETTE[4]},
         {"key": "itoen", "label": "伊藤園", "symbol": "2593.T", "kind": "company",
-         "market": "東証プライム", "business": "緑茶飲料など飲料の製造・販売(「お〜いお茶」など)", "hidden": False},
+         "market": "東証プライム", "business": "緑茶飲料など飲料の製造・販売(「お〜いお茶」など)", "hidden": False,
+         "color": COLOR_PALETTE[5]},
         {"key": "sekiko", "label": "石光商事", "symbol": "2750.T", "kind": "company",
-         "market": "東証スタンダード", "business": "コーヒー・食品原材料の輸入・卸売", "hidden": False},
+         "market": "東証スタンダード", "business": "コーヒー・食品原材料の輸入・卸売", "hidden": False,
+         "color": COLOR_PALETTE[6]},
         {"key": "colowide", "label": "コロワイド", "symbol": "7616.T", "kind": "company",
-         "market": "東証プライム", "business": "「牛角」などを展開する外食チェーン", "hidden": False},
+         "market": "東証プライム", "business": "「牛角」などを展開する外食チェーン", "hidden": False,
+         "color": COLOR_PALETTE[7]},
         {"key": "orix", "label": "オリックス", "symbol": "8591.T", "kind": "company",
-         "market": "東証プライム", "business": "リース・金融・保険など幅広く手がける総合金融グループ", "hidden": False},
+         "market": "東証プライム", "business": "リース・金融・保険など幅広く手がける総合金融グループ", "hidden": False,
+         "color": COLOR_PALETTE[8]},
         {"key": "uoki", "label": "魚喜", "symbol": "2683.T", "kind": "company",
-         "market": "東証スタンダード", "business": "水産物・食品の卸売", "hidden": False},
+         "market": "東証スタンダード", "business": "水産物・食品の卸売", "hidden": False,
+         "color": COLOR_PALETTE[9]},
         {"key": "tsukiji", "label": "築地魚市場", "symbol": "8039.T", "kind": "company",
-         "market": "東証スタンダード", "business": "水産物の卸売(築地市場を拠点とする卸売業者)", "hidden": False},
+         "market": "東証スタンダード", "business": "水産物の卸売(築地市場を拠点とする卸売業者)", "hidden": False,
+         "color": COLOR_PALETTE[10]},
         {"key": "itoham", "label": "伊藤ハム米久ホールディングス", "symbol": "2296.T", "kind": "company",
-         "market": "東証プライム", "business": "ハム・ソーセージなど食肉加工品の大手(伊藤ハムの持株会社)", "hidden": False},
+         "market": "東証プライム", "business": "ハム・ソーセージなど食肉加工品の大手(伊藤ハムの持株会社)", "hidden": False,
+         "color": COLOR_PALETTE[11]},
         {"key": "yokohamagyorui", "label": "横浜魚類", "symbol": "7443.T", "kind": "company",
-         "market": "東証スタンダード", "business": "水産物の卸売(横浜市中央卸売市場を拠点)", "hidden": False},
+         "market": "東証スタンダード", "business": "水産物の卸売(横浜市中央卸売市場を拠点)", "hidden": False,
+         "color": COLOR_PALETTE[12]},
         {"key": "sony", "label": "ソニーグループ", "symbol": "6758.T", "kind": "company",
          "market": "東証プライム", "business": "エレクトロニクス・ゲーム・映画・金融など幅広く手がけるグループ",
-         "hidden": False},
+         "hidden": False, "color": COLOR_PALETTE[13]},
     ]
 
 
@@ -96,7 +153,21 @@ def load_watchlist():
         return items
 
     with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        items = json.load(f)
+
+    # ---- 古い形式のファイルへの対応(移行処理) ----
+    # 以前のバージョンで作られた watchlist.json には "color" が入っていないため、
+    # 読み込み時に不足していれば自動で割り当てて、そのまま保存し直す。
+    # (こうしておくことで、既存のユーザーも次回起動時から色が固定される)
+    changed = False
+    for item in items:
+        if not item.get("color"):
+            item["color"] = _pick_unused_color(items)
+            changed = True
+    if changed:
+        save_watchlist(items)
+
+    return items
 
 
 def save_watchlist(items):
@@ -184,6 +255,7 @@ def add_company(items, symbol, label, market, business):
         "market": market,
         "business": business,
         "hidden": False,
+        "color": _pick_unused_color(items),
     })
     save_watchlist(items)
     return True, label + "(" + symbol + ")を追加しました。"

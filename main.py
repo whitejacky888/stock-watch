@@ -19,11 +19,18 @@ import fetch_data
 import plot_chart
 
 
-def print_menu():
-    """メニュー(選択肢の一覧)を表示する関数。"""
+def print_menu(settings):
+    """
+    メニュー(選択肢の一覧)を表示する関数。
+    表示期間・表示モードは、現在の設定値をメニューの説明に表示する
+    (今どうなっているかが一目で分かるようにするため)。
+    """
+    period_label, _ = plot_chart.PERIOD_OPTIONS[settings["period_index"]]
+    mode_label = "変化率" if settings["mode"] == "percent" else "実額"
+
     print("")
     print("=" * 50)
-    print("値動きウォッチ フェーズ2 - メニュー")
+    print("値動きウォッチ フェーズ3 - メニュー")
     print("=" * 50)
     print("1: ウォッチリストを表示する")
     print("2: 銘柄を追加する")
@@ -31,6 +38,10 @@ def print_menu():
     print("4: 非表示中の銘柄を再表示する")
     print("5: 銘柄を削除する(完全に削除・元に戻せません)")
     print("6: データを取得してグラフを表示する")
+    print("7: 表示期間を変更する(現在: " + period_label + ")")
+    print("8: 表示モードを変更する(現在: " + mode_label + ")")
+    print("9: 1つの銘柄だけを表示する(ソロ表示・実額表示への切り替えに便利)")
+    print("10: 全ての銘柄を表示に戻す")
     print("0: 終了する")
     print("-" * 50)
 
@@ -220,26 +231,150 @@ def handle_remove(items):
     print(message)
 
 
-def handle_fetch_and_plot(items):
+def handle_period(settings):
+    """「7: 表示期間を変更する」が選ばれたときの処理。"""
+    print("")
+    print("表示したい期間を選んでください。")
+    for i, (label, days) in enumerate(plot_chart.PERIOD_OPTIONS):
+        print(str(i) + ": " + label)
+
+    choice = ask_index("番号: ", len(plot_chart.PERIOD_OPTIONS))
+    if choice is None:
+        return
+
+    settings["period_index"] = choice
+    label, _ = plot_chart.PERIOD_OPTIONS[choice]
+    print("表示期間を「" + label + "」に変更しました。")
+
+
+def handle_mode(items, settings):
+    """
+    「8: 表示モードを変更する」が選ばれたときの処理。
+
+    実額表示(要件定義書7.3節の「ソロ表示」)は、値の単位(円・pt など)が
+    銘柄ごとに違うため、複数の銘柄を同時に比べるのには向いていません。
+    そのため、実額表示に切り替えられるのは「表示中の銘柄がちょうど1つ」
+    のときだけにしています。
+    """
+    visible_count = len([item for item in items if not item["hidden"]])
+
+    print("")
+    print("0: 変化率(%)で表示する(複数の銘柄を比較できる・通常はこちら)")
+    print("1: 実額で表示する(表示中の銘柄が1つだけのときのみ選べます)")
+
+    choice = ask_index("番号: ", 2)
+    if choice is None:
+        return
+
+    if choice == 1 and visible_count != 1:
+        print("実額表示にするには、表示中の銘柄を1つだけに絞ってください。")
+        print("「9: 1つの銘柄だけを表示する(ソロ表示)」を使うと、1回の操作でまとめて切り替えられます。")
+        print("(現在、表示中の銘柄が " + str(visible_count) + " 件あります)")
+        return
+
+    settings["mode"] = "absolute" if choice == 1 else "percent"
+    mode_label = "実額" if choice == 1 else "変化率"
+    print("表示モードを「" + mode_label + "」に変更しました。")
+
+
+def handle_solo(items):
+    """
+    「9: 1つの銘柄だけを表示する(ソロ表示)」が選ばれたときの処理。
+
+    実額(実際の値)表示は、表示中の銘柄がちょうど1つのときしか選べない
+    仕様になっている(理由: 日経平均のような数万pt単位の指数と、
+    キーコーヒーのような数千円単位の株価を同じグラフに実額で重ねると、
+    小さい方の値がほぼ0円の位置に張り付いてしまい、値動きが全く
+    見えなくなってしまうため)。
+
+    これまでは、1つに絞るために他の銘柄を「3: 銘柄を非表示にする」で
+    1つずつ非表示にする必要があり、登録数が多いと手間がかかっていた。
+    この機能は、選んだ1件だけを表示・それ以外は全て非表示、という状態を
+    一度の操作で作れるようにするショートカットです。
+    (非表示にするだけなので、データや登録情報が消えることはありません。
+     元に戻したいときは「10: 全ての銘柄を表示に戻す」を使ってください)
+    """
+    if len(items) == 0:
+        print("ウォッチリストに何も登録されていません。")
+        return
+
+    print("")
+    print("1つだけ表示にしたい銘柄の番号を選んでください。(選んだ銘柄以外は非表示になります)")
+    for i, item in enumerate(items):
+        status = "非表示" if item["hidden"] else "表示中"
+        print(str(i) + ": " + item["label"] + " (" + item["symbol"] + ") [現在: " + status + "]")
+
+    choice = ask_index("番号: ", len(items))
+    if choice is None:
+        return
+
+    for i, item in enumerate(items):
+        item["hidden"] = (i != choice)
+    watchlist.save_watchlist(items)
+
+    print(items[choice]["label"] + " だけを表示するようにしました(他の銘柄はすべて非表示になりました)。")
+    print("続けて「8: 表示モードを変更する」で実額表示に切り替えられます。")
+
+
+def handle_show_all(items):
+    """
+    「10: 全ての銘柄を表示に戻す」が選ばれたときの処理。
+    ソロ表示などで非表示にした銘柄を、まとめて全て表示中に戻す。
+    """
+    if len(items) == 0:
+        print("ウォッチリストに何も登録されていません。")
+        return
+
+    for item in items:
+        item["hidden"] = False
+    watchlist.save_watchlist(items)
+
+    print("全ての銘柄(" + str(len(items)) + " 件)を表示に戻しました。")
+    print("※ 表示モードが「実額」のままだと、次にグラフを表示するときに自動で「変化率」に切り替わります。")
+
+
+def handle_fetch_and_plot(items, settings):
     """
     「6: データを取得してグラフを表示する」が選ばれたときの処理。
     非表示中のものも含めて全件データ取得はするが、グラフに描くのは
     表示中(hidden が False)のものだけにする。
+    表示期間・表示モードは、現在の settings の値を使う。
     """
     print("\n[ステップ1/2] yfinance から株価データを取得します(非表示中の銘柄も含みます)")
     fetch_data.fetch_all(items)
 
     visible_items = [item for item in items if not item["hidden"]]
-    print("\n[ステップ2/2] グラフを表示します(表示中の " + str(len(visible_items)) + " 件)")
-    plot_chart.plot_all(visible_items)
+
+    # 実額表示は銘柄が1つのときだけ有効。複数ある状態で実額設定のままだった場合は、
+    # ここで安全のため変化率表示に切り替える(値の単位が違うものを実額で
+    # 重ねて表示すると、グラフとして意味をなさないため)。
+    mode = settings["mode"]
+    if mode == "absolute" and len(visible_items) != 1:
+        print("※ 実額表示は銘柄が1つのときだけ使えるため、今回は変化率で表示します。")
+        mode = "percent"
+
+    period_label, period_days = plot_chart.PERIOD_OPTIONS[settings["period_index"]]
+
+    print("\n[ステップ2/2] グラフを表示します(表示中の " + str(len(visible_items)) + " 件 / "
+          + period_label + " / " + ("実額" if mode == "absolute" else "変化率") + ")")
+    plot_chart.plot_all(visible_items, period_days=period_days, period_label=period_label, mode=mode)
 
 
 def main():
     # ウォッチリストを読み込む(初回はここで watchlist.json が自動作成される)
     items = watchlist.load_watchlist()
 
+    # 表示設定(期間・モード)。watchlist.json とは違い、ファイルには保存せず、
+    # プログラムを実行している間だけ覚えている設定にしている
+    # (要件定義書では「保存する」対象として明記されていないため、
+    #  ここではシンプルに「起動するたびに既定値に戻る」形にしています)。
+    settings = {
+        "period_index": 3,  # PERIOD_OPTIONS の3番目 = "1年"(既定値)
+        "mode": "percent",  # 既定は変化率表示
+    }
+
     while True:
-        print_menu()
+        print_menu(settings)
         choice = input("番号を選んでください: ").strip()
 
         if choice == "1":
@@ -253,12 +388,20 @@ def main():
         elif choice == "5":
             handle_remove(items)
         elif choice == "6":
-            handle_fetch_and_plot(items)
+            handle_fetch_and_plot(items, settings)
+        elif choice == "7":
+            handle_period(settings)
+        elif choice == "8":
+            handle_mode(items, settings)
+        elif choice == "9":
+            handle_solo(items)
+        elif choice == "10":
+            handle_show_all(items)
         elif choice == "0":
             print("終了します。")
             break
         else:
-            print("0〜6の番号を入力してください。")
+            print("0〜10の番号を入力してください。")
 
 
 # このファイルを直接 "python main.py" で実行したときだけ main() を呼び出す
