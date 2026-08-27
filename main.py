@@ -17,6 +17,7 @@ main.py
 import watchlist
 import fetch_data
 import plot_chart
+import glossary
 
 
 def print_menu(settings):
@@ -30,7 +31,7 @@ def print_menu(settings):
 
     print("")
     print("=" * 50)
-    print("値動きウォッチ フェーズ3 - メニュー")
+    print("値動きウォッチ フェーズ4 - メニュー")
     print("=" * 50)
     print("1: ウォッチリストを表示する")
     print("2: 銘柄を追加する")
@@ -42,8 +43,37 @@ def print_menu(settings):
     print("8: 表示モードを変更する(現在: " + mode_label + ")")
     print("9: 1つの銘柄だけを表示する(ソロ表示・実額表示への切り替えに便利)")
     print("10: 全ての銘柄を表示に戻す")
+    print("11: 用語集を表示する")
+    print("12: 用語を検索する")
     print("0: 終了する")
     print("-" * 50)
+
+
+def _format_change(diff, pct):
+    """
+    「前日比」「騰落率(%)」を、色付きの文字列にして返す関数。
+    要件定義書 7.4節「前日比・騰落率を数値と色で分かりやすく表示する」に対応。
+
+    日本の株価表示でよくある配色にならい、上昇=暖色(赤)、下落=寒色(青)にする
+    (米国式の「上昇=緑、下落=赤」とは逆なので注意)。
+    色付けには、ターミナルの「ANSIエスケープコード」という仕組みを使っている
+    (VS Codeのターミナルであれば問題なく表示できるはず)。
+
+    まだデータを取得していない銘柄の場合は diff が None になるので、
+    その場合は「(データ未取得)」という文字列を返す。
+    """
+    if diff is None:
+        return "(データ未取得。「6」でデータを取得すると表示されます)"
+
+    sign = "+" if diff >= 0 else ""
+    text = "{}{:.2f} ({}{:.2f}%)".format(sign, diff, sign, pct)
+
+    if diff > 0:
+        return "\033[31m" + text + "\033[0m"  # 赤(上昇)
+    elif diff < 0:
+        return "\033[34m" + text + "\033[0m"  # 青(下落)
+    else:
+        return text  # 変化なし(0)は色を付けない
 
 
 def show_watchlist(items):
@@ -57,6 +87,10 @@ def show_watchlist(items):
        しまい、「表示されているのに気づきにくい」状態になっていました。
        そこで、1件につき数行を使う「縦に並べる」形式に変更し、
        普通の広さのターミナルでも折り返しが起きにくいようにしています。
+
+    フェーズ4より、直近取得済みのデータがあれば「前日比」もあわせて
+    表示するようにしました(データ未取得の場合はその旨を表示するだけで、
+    ここで新たにデータ取得は行わない。取得は「6」で行う)。
     """
     print("")
     print("=" * 60)
@@ -68,6 +102,8 @@ def show_watchlist(items):
         print("[{:>2}] {} / {} / {} ({})".format(i, status, kind_label, item["label"], item["symbol"]))
         print("      市場区分: " + item["market"])
         print("      事業内容: " + item["business"])
+        diff, pct = plot_chart.get_latest_change(item)
+        print("      前日比: " + _format_change(diff, pct))
         print("-" * 60)
 
     company_count = watchlist.count_companies(items)
@@ -333,6 +369,77 @@ def handle_show_all(items):
     print("※ 表示モードが「実額」のままだと、次にグラフを表示するときに自動で「変化率」に切り替わります。")
 
 
+def _highlight(text, keyword):
+    """
+    文字列 text の中で、keyword に一致する部分を目立たせて返す関数
+    (ターミナルの色付け機能(ANSIエスケープコード)を使う)。
+    要件定義書 7.7節「検索語に一致する箇所をハイライト表示する」に対応。
+
+    大文字・小文字を区別せずに探すが、実際に画面に出す文字列は
+    元の表記(大文字・小文字)のまま使う。
+    """
+    if keyword == "":
+        return text
+
+    lower_text = text.lower()
+    lower_keyword = keyword.lower()
+
+    result = ""
+    i = 0
+    while i < len(text):
+        idx = lower_text.find(lower_keyword, i)
+        if idx == -1:
+            result += text[i:]
+            break
+        result += text[i:idx]
+        matched = text[idx:idx + len(keyword)]
+        result += "\033[1;33m" + matched + "\033[0m"  # 太字・黄色で強調
+        i = idx + len(keyword)
+    return result
+
+
+def handle_glossary():
+    """
+    「11: 用語集を表示する」が選ばれたときの処理。
+    要件定義書 7.4節(学習支援機能)に対応。
+    """
+    print("")
+    print("=" * 60)
+    print("用語集(グラフや投資でよく出てくる言葉の解説)")
+    print("=" * 60)
+    for term, description in glossary.GLOSSARY:
+        print("■ " + term)
+        print("    " + description)
+    print("-" * 60)
+    print(str(len(glossary.GLOSSARY)) + " 件の用語を表示しました。")
+
+
+def handle_glossary_search():
+    """
+    「12: 用語を検索する」が選ばれたときの処理。
+    要件定義書 7.7節(用語検索機能)に対応。
+    """
+    print("")
+    keyword = input("検索したいキーワードを入力してください: ").strip()
+    if keyword == "":
+        print("何も入力されなかったため、検索を中止しました。")
+        return
+
+    results = glossary.search_glossary(keyword)
+    print("")
+    if len(results) == 0:
+        print("「" + keyword + "」に一致する用語は見つかりませんでした。")
+        return
+
+    print("=" * 60)
+    print("「" + keyword + "」の検索結果(" + str(len(results)) + " 件)")
+    print("=" * 60)
+    for term, description in results:
+        print("■ " + _highlight(term, keyword))
+        print("    " + _highlight(description, keyword))
+    print("-" * 60)
+
+
 def handle_fetch_and_plot(items, settings):
     """
     「6: データを取得してグラフを表示する」が選ばれたときの処理。
@@ -397,11 +504,15 @@ def main():
             handle_solo(items)
         elif choice == "10":
             handle_show_all(items)
+        elif choice == "11":
+            handle_glossary()
+        elif choice == "12":
+            handle_glossary_search()
         elif choice == "0":
             print("終了します。")
             break
         else:
-            print("0〜10の番号を入力してください。")
+            print("0〜12の番号を入力してください。")
 
 
 # このファイルを直接 "python main.py" で実行したときだけ main() を呼び出す

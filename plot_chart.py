@@ -48,18 +48,25 @@ def find_japanese_font():
     return None
 
 
-def load_series(ticker):
+def load_series(ticker, quiet=False):
     """
     1つのティッカー(指数・銘柄)のCSVファイルを読み込み、
     (日付のリスト, 終値のリスト) のペア(タプル)として返す関数。
 
     データが無い/壊れている場合は (None, None) を返す。
+
+    quiet : bool
+        True の場合、データが無い場合などのメッセージを表示しない。
+        (例: フェーズ4で追加した「前日比」をウォッチリスト一覧に
+         表示する際、データ未取得の銘柄が複数あってもエラーメッセージが
+         大量に出て見づらくならないようにするため)
     """
     file_path = os.path.join(config.DATA_DIR, ticker["key"] + ".csv")
 
     if not os.path.exists(file_path):
-        print("  x " + ticker["label"] + ": データファイルが見つかりません(" + file_path + ")")
-        print("     先に python fetch_data.py を実行してください。")
+        if not quiet:
+            print("  x " + ticker["label"] + ": データファイルが見つかりません(" + file_path + ")")
+            print("     先に python fetch_data.py を実行してください。")
         return None, None
 
     dates = []
@@ -79,7 +86,8 @@ def load_series(ticker):
         close_col = lower_to_original.get("close")
 
         if date_col is None or close_col is None:
-            print("  x " + ticker["label"] + ": CSVの形式が想定と違います(列名: " + str(fieldnames) + ")")
+            if not quiet:
+                print("  x " + ticker["label"] + ": CSVの形式が想定と違います(列名: " + str(fieldnames) + ")")
             return None, None
 
         for row in reader:
@@ -93,10 +101,30 @@ def load_series(ticker):
             closes.append(c)
 
     if len(closes) == 0:
-        print("  x " + ticker["label"] + ": 有効なデータが1件もありませんでした。")
+        if not quiet:
+            print("  x " + ticker["label"] + ": 有効なデータが1件もありませんでした。")
         return None, None
 
     return dates, closes
+
+
+def get_latest_change(ticker):
+    """
+    直近2営業日分のデータから、「前日比」「騰落率(%)」を計算する関数。
+    要件定義書 7.4節(前日比・騰落率を分かりやすく表示する)に対応。
+
+    データがまだ取得されていない場合や、データが1件以下しかない場合は
+    (None, None) を返す(呼び出し元で「未取得」などの表示にする)。
+    """
+    dates, closes = load_series(ticker, quiet=True)
+    if closes is None or len(closes) < 2:
+        return None, None
+
+    latest = closes[-1]
+    previous = closes[-2]
+    diff = latest - previous
+    pct = (diff / previous) * 100.0 if previous != 0 else 0.0
+    return diff, pct
 
 
 def to_percent_change(closes):
@@ -234,7 +262,7 @@ def plot_all(tickers, period_days=None, period_label=None, mode="percent"):
         ax.set_ylabel("変化率(%) ※期間の始点を0%とした変化率")
         title_mode = "変化率"
 
-    ax.set_title("値動きウォッチ(実データ版・フェーズ3・" + period_text + "・" + title_mode + ")", fontsize=14)
+    ax.set_title("値動きウォッチ(実データ版・フェーズ4・" + period_text + "・" + title_mode + ")", fontsize=14)
     ax.set_xlabel("日付")
     ax.legend(loc="upper left", fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)
