@@ -262,7 +262,7 @@ def plot_all(tickers, period_days=None, period_label=None, mode="percent"):
         ax.set_ylabel("変化率(%) ※期間の始点を0%とした変化率")
         title_mode = "変化率"
 
-    ax.set_title("値動きウォッチ(実データ版・フェーズ4・" + period_text + "・" + title_mode + ")", fontsize=14)
+    ax.set_title("値動きウォッチ(実データ版・フェーズ5・" + period_text + "・" + title_mode + ")", fontsize=14)
     ax.set_xlabel("日付")
     ax.legend(loc="upper left", fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)

@@ -6,7 +6,8 @@
     "kind": "index",
     "market": "-",
     "business": "東証プライムの代表的な225銘柄から算出される、日本を代表する株価指数",
-    "hidden": false
+    "hidden": false,
+    "color": "#e6194b"
   },
   {
     "key": "nasdaq",
@@ -15,7 +16,8 @@
     "kind": "index",
     "market": "-",
     "business": "米国NASDAQ市場に上場する銘柄から算出される株価指数(IT・ハイテク企業が多い)",
-    "hidden": false
+    "hidden": false,
+    "color": "#3cb44b"
   },
   {
     "key": "keycoffee",
@@ -24,7 +26,8 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "コーヒー製品の製造・販売",
-    "hidden": false
+    "hidden": false,
+    "color": "#4363d8"
   },
   {
     "key": "kameda",
@@ -33,7 +36,8 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "米菓(せんべい・柿の種など)の製造・販売",
-    "hidden": false
+    "hidden": false,
+    "color": "#f58231"
   },
   {
     "key": "takeda",
@@ -42,7 +46,8 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "国内最大手の医薬品メーカー",
-    "hidden": false
+    "hidden": false,
+    "color": "#911eb4"
   },
   {
     "key": "itoen",
@@ -51,7 +56,8 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "緑茶飲料など飲料の製造・販売(「お〜いお茶」など)",
-    "hidden": false
+    "hidden": false,
+    "color": "#46f0f0"
   },
   {
     "key": "sekiko",
@@ -60,7 +66,8 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "コーヒー・食品原材料の輸入・卸売",
-    "hidden": false
+    "hidden": false,
+    "color": "#f032e6"
   },
   {
     "key": "colowide",
@@ -69,7 +76,8 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "「牛角」などを展開する外食チェーン",
-    "hidden": false
+    "hidden": false,
+    "color": "#9a6324"
   },
   {
     "key": "orix",
@@ -78,7 +86,8 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "リース・金融・保険など幅広く手がける総合金融グループ",
-    "hidden": false
+    "hidden": false,
+    "color": "#800000"
   },
   {
     "key": "uoki",
@@ -87,7 +96,8 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物・食品の卸売",
-    "hidden": false
+    "hidden": false,
+    "color": "#808000"
   },
   {
     "key": "tsukiji",
@@ -96,7 +106,8 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物の卸売(築地市場を拠点とする卸売業者)",
-    "hidden": false
+    "hidden": false,
+    "color": "#000075"
   },
   {
     "key": "itoham",
@@ -105,7 +116,8 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "ハム・ソーセージなど食肉加工品の大手(伊藤ハムの持株会社)",
-    "hidden": false
+    "hidden": false,
+    "color": "#808080"
   },
   {
     "key": "yokohamagyorui",
@@ -114,7 +126,8 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物の卸売(横浜市中央卸売市場を拠点)",
-    "hidden": false
+    "hidden": false,
+    "color": "#000000"
   },
   {
     "key": "sony",
@@ -123,15 +136,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "エレクトロニクス・ゲーム・映画・金融など幅広く手がけるグループ",
-    "hidden": false
-  },
-  {
-    "key": "nvda",
-    "label": "NVIDIA Corporation",
-    "symbol": "NVDA",
-    "kind": "company",
-    "market": "不明",
-    "business": "(未入力)",
-    "hidden": false
+    "hidden": false,
+    "color": "#bcf60c"
   }
 ]

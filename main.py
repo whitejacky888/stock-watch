@@ -18,6 +18,7 @@ import watchlist
 import fetch_data
 import plot_chart
 import glossary
+import news
 
 
 def print_menu(settings):
@@ -31,7 +32,7 @@ def print_menu(settings):
 
     print("")
     print("=" * 50)
-    print("値動きウォッチ フェーズ4 - メニュー")
+    print("値動きウォッチ フェーズ5 - メニュー")
     print("=" * 50)
     print("1: ウォッチリストを表示する")
     print("2: 銘柄を追加する")
@@ -45,6 +46,7 @@ def print_menu(settings):
     print("10: 全ての銘柄を表示に戻す")
     print("11: 用語集を表示する")
     print("12: 用語を検索する")
+    print("13: 関連ニュースを表示する")
     print("0: 終了する")
     print("-" * 50)
 
@@ -440,6 +442,94 @@ def handle_glossary_search():
     print("-" * 60)
 
 
+def _hex_to_ansi_fg(hex_color):
+    """
+    "#e6194b" のような16進数カラーコードを、ターミナルの文字色を
+    変える「ANSIエスケープコード」(24bitカラー版)に変換する関数。
+    グラフの線の色(watchlist.pyのCOLOR_PALETTE)と、ニュースのタグの色を
+    揃えるために使う。
+    """
+    hex_color = (hex_color or "").lstrip("#")
+    if len(hex_color) != 6:
+        return ""
+    try:
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+    except ValueError:
+        return ""
+    return "\033[38;2;{};{};{}m".format(r, g, b)
+
+
+def _colorize_tag(text, hex_color):
+    """
+    文字列 text を、hex_color の色で色付けして返す関数。
+    色が無効・取得できない場合は、色付けせずそのまま返す。
+    """
+    ansi_code = _hex_to_ansi_fg(hex_color)
+    if ansi_code == "":
+        return text
+    return ansi_code + text + "\033[0m"
+
+
+def handle_news(items):
+    """
+    「13: 関連ニュースを表示する」が選ばれたときの処理。
+    要件定義書 7.6節(ニュース表示機能)に対応。
+
+    表示中(hidden が False)の銘柄の中から、ニュースを見たい銘柄を
+    選んでもらう(要件定義書の「タグをクリックして絞り込む」に相当する
+    操作を、ターミナルでは番号選択で行う)。「0」を選ぶと、表示中の
+    銘柄すべてのニュースをまとめて新しい順に表示する。
+
+    ニュースはGoogleニュースの検索RSS(日本語・日本向け設定)経由で
+    取得するため、追加のAPIキー登録は不要。ニュース本文の「やさしい解説」
+    の自動生成は今回のバージョンでは未対応(README・要件定義書に
+    将来の課題として記載)。
+    """
+    visible = [item for item in items if not item["hidden"]]
+    if len(visible) == 0:
+        print("表示中の銘柄がありません。「4: 非表示中の銘柄を再表示する」などで、")
+        print("先にニュースを見たい銘柄を表示中にしてください。")
+        return
+
+    print("")
+    print("ニュースを見たい銘柄を選んでください。")
+    print("0: 表示中の銘柄すべてのニュースをまとめて見る")
+    for i, item in enumerate(visible):
+        print(str(i + 1) + ": " + item["label"] + " (" + item["symbol"] + ")")
+
+    choice = ask_index("番号: ", len(visible) + 1)
+    if choice is None:
+        return
+
+    targets = visible if choice == 0 else [visible[choice - 1]]
+
+    print("")
+    print("Googleニュース(日本語)から関連ニュースを取得しています...")
+    all_news = news.fetch_news_for_tickers(targets, limit_per_ticker=5)
+
+    if len(all_news) == 0:
+        print("関連ニュースが見つかりませんでした(銘柄によってはニュースが少ない・無いことがあります)。")
+        return
+
+    print("")
+    print("=" * 60)
+    print("関連ニュース(" + str(len(all_news)) + " 件・新しい順)")
+    print("=" * 60)
+    for entry in all_news:
+        tag = "[" + entry["ticker_label"] + "]"
+        published_text = entry["published"].strftime("%Y-%m-%d %H:%M") if entry["published"] else "日時不明"
+        print(_colorize_tag(tag, entry["ticker_color"]) + " " + entry["title"])
+        print("    配信元: " + (entry["publisher"] or "不明") + " / " + published_text)
+        if entry["link"]:
+            print("    " + entry["link"])
+        print("-" * 60)
+
+    print("※ 見出し・配信元などはGoogleニュース経由で取得した、日本の各配信元による情報そのものです。")
+    print("  分からない言葉が出てきたら、「12: 用語を検索する」で調べてみてください。")
+
+
 def handle_fetch_and_plot(items, settings):
     """
     「6: データを取得してグラフを表示する」が選ばれたときの処理。
@@ -508,11 +598,13 @@ def main():
             handle_glossary()
         elif choice == "12":
             handle_glossary_search()
+        elif choice == "13":
+            handle_news(items)
         elif choice == "0":
             print("終了します。")
             break
         else:
-            print("0〜12の番号を入力してください。")
+            print("0〜13の番号を入力してください。")
 
 
 # このファイルを直接 "python main.py" で実行したときだけ main() を呼び出す
