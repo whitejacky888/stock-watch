@@ -72,6 +72,27 @@ button:disabled {
   cursor: default;
 }
 
+.status-toggle {
+  cursor: pointer;
+  white-space: nowrap;
+  padding-bottom: 1px;
+  border-bottom: 1px dashed transparent;
+}
+
+.status-toggle:hover {
+  border-bottom-color: currentColor;
+}
+
+.status-toggle.status-shown {
+  color: #d62728;
+  font-weight: bold;
+}
+
+.status-toggle.status-hidden {
+  color: #222;
+  font-weight: normal;
+}
+
 select {
   padding: 0.35rem 0.5rem;
   font-size: 0.95rem;

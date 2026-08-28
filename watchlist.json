@@ -126,7 +126,7 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物の卸売(横浜市中央卸売市場を拠点)",
-    "hidden": false,
+    "hidden": true,
     "color": "#000000"
   },
   {

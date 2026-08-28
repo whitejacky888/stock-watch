@@ -295,7 +295,6 @@ async function loadWatchlist() {
   items.forEach((item) => {
     const tr = document.createElement("tr");
 
-    const statusText = item.hidden ? "非表示" : "表示中";
     const kindText = item.kind === "index" ? "指数" : "個別銘柄";
 
     let changeText = "(データ未取得。上のボタンで取得できます)";
@@ -312,17 +311,63 @@ async function loadWatchlist() {
 
     const nameColor = item.color || "#222";
 
+    // 列の並びは、銘柄の右隣に前日比を置き、市場区分・事業内容は
+    // 補足情報として後ろに回している(ご指定のレイアウト)。
     tr.innerHTML =
-      '<td data-label="状態">' + statusText + "</td>" +
+      '<td data-label="状態"></td>' +
       '<td data-label="種別">' + kindText + "</td>" +
       '<td data-label="銘柄" style="color:' + nameColor + '"><strong>' + item.label + "</strong> (" + item.symbol + ")</td>" +
+      '<td data-label="前日比" class="' + changeClass + '">' + changeText + "</td>" +
       '<td data-label="市場区分">' + item.market + "</td>" +
-      '<td data-label="事業内容">' + item.business + "</td>" +
-      '<td data-label="前日比" class="' + changeClass + '">' + changeText + "</td>";
+      '<td data-label="事業内容">' + item.business + "</td>";
+
+    // 「状態」セル自体を表示・非表示の切り替えボタンにする(フェーズ8-2)。
+    // 表示中は赤の太字、非表示は黒の通常文字にして、押すと逆の状態に
+    // なる(銘柄名などに記号が含まれていても問題が起きないよう、
+    // DOM APIで作ってdatasetにキーを持たせている)。
+    const statusCell = tr.firstElementChild;
+    const statusToggle = document.createElement("span");
+    statusToggle.className = "status-toggle " + (item.hidden ? "status-hidden" : "status-shown");
+    statusToggle.textContent = item.hidden ? "非表示" : "表示中";
+    statusToggle.title = item.hidden ? "クリックすると表示します" : "クリックすると非表示にします";
+    statusToggle.dataset.key = item.key;
+    statusToggle.dataset.hidden = String(item.hidden);
+    statusCell.appendChild(statusToggle);
 
     tbody.appendChild(tr);
   });
 }
+
+// ウォッチリストの「状態」表示(表示中/非表示)のクリックを、
+// 表全体(tbody)で1つだけ受け止めて処理する(行を作り直すたびに
+// 個別にリスナーを付け直さなくて済むようにするため)。
+document.querySelector("#watchlist-table tbody").addEventListener("click", async (e) => {
+  const el = e.target.closest(".status-toggle");
+  if (!el) return;
+
+  const key = el.dataset.key;
+  const nextHidden = el.dataset.hidden !== "true"; // 今と逆の状態にする
+
+  el.style.pointerEvents = "none";
+  try {
+    const res = await fetch("/api/toggle_hidden", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: key, hidden: nextHidden }),
+    });
+    if (res.ok) {
+      await loadWatchlist();
+      await loadChart(currentPeriodIndex());
+    } else {
+      const body = await res.json().catch(() => ({}));
+      alert(body.message || "切り替えに失敗しました。");
+      el.style.pointerEvents = "";
+    }
+  } catch (err) {
+    alert("切り替えに失敗しました。通信状況を確認してください。");
+    el.style.pointerEvents = "";
+  }
+});
 
 async function loadChart(periodIndex) {
   const res = await fetch("/api/chart_data?period=" + periodIndex);

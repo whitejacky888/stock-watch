@@ -1,7 +1,7 @@
 """
 app.py
 ------------------------------------------------------------
-フェーズ8-1:ブラウザで動くGUI版(Webアプリ)の入り口。
+フェーズ8:ブラウザで動くGUI版(Webアプリ)の入り口。
 
 これまでのフェーズ1〜7は、ターミナルの「メニュー番号を選ぶ」形式の
 プログラム(main.py)として作ってきましたが、将来的にスマートフォンでも
@@ -11,10 +11,11 @@ app.py
 います。
 
 【段階的に進めます(要件定義書11章フェーズ8)】
-今回(フェーズ8-1)でGUI化したのは、次の2つだけです。
-  ・ウォッチリストの一覧表示(前日比つき)
-  ・複数銘柄の比較グラフ(折れ線・変化率、期間の切り替え)
-銘柄の追加・非表示・削除、実額表示、用語集、ニュース、詳細チャート
+これまでにGUI化したのは、次の3つです。
+  ・ウォッチリストの一覧表示(前日比つき)【フェーズ8-1】
+  ・複数銘柄の比較グラフ(折れ線・変化率、期間の切り替え)【フェーズ8-1】
+  ・銘柄の表示・非表示の切り替え【フェーズ8-2】
+銘柄の追加・削除、実額表示、用語集、ニュース、詳細チャート
 (ローソク足・移動平均線・出来高)、値動き予測といった機能は、まだ
 Web版には入っていません。次回以降のフェーズで少しずつ追加していく
 予定です。それまでの間、これらの操作は今まで通り
@@ -22,7 +23,7 @@ Web版には入っていません。次回以降のフェーズで少しずつ�
 (ターミナル版)から行ってください。ウォッチリストのデータ
 (watchlist.json)や株価データ(data/フォルダの中のCSV)は、ターミナル版・
 Web版のどちらからも同じファイルを読み書きするので、両方を使い分けても
-内容は共有されます(片方で追加した銘柄は、もう片方にもすぐ反映されます)。
+内容は共有されます(片方で変更した内容は、もう片方にもすぐ反映されます)。
 
 実行方法:
     python app.py
@@ -113,6 +114,32 @@ def api_fetch():
     items = watchlist.load_watchlist()
     fetch_data.fetch_all(items)
     return jsonify({"status": "ok", "count": len(items)})
+
+
+@app.route("/api/toggle_hidden", methods=["POST"])
+def api_toggle_hidden():
+    """
+    ウォッチリストの1件の「表示中/非表示」を切り替えるAPI(フェーズ8-2)。
+    ターミナル版のメニュー「3: 銘柄を非表示にする」「4: 非表示中の銘柄を
+    再表示する」と同じ処理(watchlist.set_hidden)を、GUI版のボタンから
+    呼び出せるようにしたもの。基本の2指数(日経平均・NASDAQ)も、削除は
+    できないが非表示にすることはできる仕様(7.1節)のため、ここでは
+    kindによる制限はかけていない。
+    リクエストボディ(JSON)例: {"key": "keycoffee", "hidden": true}
+    """
+    payload = request.get_json(silent=True) or {}
+    key = payload.get("key")
+    hidden = bool(payload.get("hidden"))
+
+    items = watchlist.load_watchlist()
+    index = next((i for i, item in enumerate(items) if item["key"] == key), None)
+    if index is None:
+        return jsonify({"status": "error", "message": "指定された銘柄が見つかりません。"}), 404
+
+    ok, message = watchlist.set_hidden(items, index, hidden)
+    if not ok:
+        return jsonify({"status": "error", "message": message}), 400
+    return jsonify({"status": "ok", "message": message})
 
 
 if __name__ == "__main__":
