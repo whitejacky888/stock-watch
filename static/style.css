@@ -1,0 +1,209 @@
+/*
+style.css
+------------------------------------------------------------
+値動きウォッチ(Web版)の見た目をまとめたファイル。
+スマートフォンの画面幅でも見られるよう、簡単なレスポンシブ対応を
+入れています(将来のPWA化を見据えて)。
+*/
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans CJK JP", sans-serif;
+  margin: 0;
+  padding: 0 1.2rem 2rem;
+  background: #f5f6f8;
+  color: #222;
+}
+
+header {
+  padding: 1.2rem 0 0.6rem;
+}
+
+h1 {
+  font-size: 1.3rem;
+  margin: 0 0 0.6rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.6rem;
+}
+
+.note {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #444;
+  background: #eaf0fb;
+  border: 1px solid #cdd9ee;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  margin: 0;
+}
+
+.note code {
+  background: #dbe6fa;
+  padding: 0 0.3rem;
+  border-radius: 4px;
+}
+
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.1rem 0;
+  flex-wrap: wrap;
+}
+
+button {
+  padding: 0.55rem 1.1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  background: #2e5395;
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+select {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.95rem;
+}
+
+#status-text {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+#chart-section {
+  background: white;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+}
+
+#chart-container {
+  position: relative;
+  width: 100%;
+  height: 340px;
+}
+
+#priceChart {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+.chart-tooltip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  background: rgba(30, 30, 30, 0.92);
+  color: white;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+#chart-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  padding: 0.7rem 0 0;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+#chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+#chart-legend .swatch {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+th, td {
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid #ececec;
+  text-align: left;
+  font-size: 0.88rem;
+  vertical-align: top;
+}
+
+th {
+  background: #2e5395;
+  color: white;
+  font-weight: bold;
+}
+
+td.up {
+  color: #d62728;
+  font-weight: bold;
+}
+
+td.down {
+  color: #1f77b4;
+  font-weight: bold;
+}
+
+@media (max-width: 640px) {
+  #controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+
+  thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+
+  tr {
+    margin-bottom: 0.8rem;
+    border: 1px solid #ececec;
+    border-radius: 8px;
+    padding: 0.4rem 0.6rem;
+  }
+
+  td {
+    border-bottom: none;
+    padding: 0.25rem 0;
+  }
+
+  td::before {
+    content: attr(data-label) ": ";
+    font-weight: bold;
+    color: #555;
+  }
+}

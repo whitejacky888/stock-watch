@@ -1,2 +1,3 @@
 yfinance
 matplotlib>=3.5
+flask>=2.3

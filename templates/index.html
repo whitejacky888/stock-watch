@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>値動きウォッチ(Web版)</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <h1>値動きウォッチ(Web版・フェーズ8-1試作)</h1>
+  <p class="note">
+    今は「ウォッチリスト表示」と「比較グラフ表示」だけをGUI化しています。
+    銘柄の追加・非表示・削除、実額表示、用語集、ニュース、詳細チャート
+    (ローソク足など)、値動き予測は、引き続きターミナル版
+    (<code>python main.py</code>)からご利用ください。データ(ウォッチリスト・
+    株価)はどちらから操作しても共通なので、両方を使い分けても内容は同じです。
+  </p>
+</header>
+
+<main>
+  <section id="controls">
+    <button id="fetch-btn">データを取得する(ターミナル版の「6」と同じ処理)</button>
+    <label>
+      表示期間:
+      <select id="period-select">
+        {% for label in period_options %}
+        <option value="{{ loop.index0 }}" {% if loop.index0 == 3 %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <span id="status-text"></span>
+  </section>
+
+  <section id="chart-section">
+    <div id="chart-container">
+      <canvas id="priceChart"></canvas>
+      <div id="chart-tooltip" class="chart-tooltip"></div>
+    </div>
+    <ul id="chart-legend"></ul>
+  </section>
+
+  <section id="watchlist-section">
+    <h2>ウォッチリスト</h2>
+    <table id="watchlist-table">
+      <thead>
+        <tr>
+          <th>状態</th>
+          <th>種別</th>
+          <th>銘柄</th>
+          <th>市場区分</th>
+          <th>事業内容</th>
+          <th>前日比</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

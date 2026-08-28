@@ -157,7 +157,7 @@
     "market": "不明",
     "business": "(未入力)",
     "hidden": false,
-    "color": "#b8860b"
+    "color": "#c71585"
   },
   {
     "key": "9042_t",
@@ -167,6 +167,6 @@
     "market": "不明",
     "business": "(未入力)",
     "hidden": false,
-    "color": "#c71585"
+    "color": "#b8860b"
   }
 ]
