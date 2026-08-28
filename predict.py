@@ -3,17 +3,21 @@ predict.py
 ------------------------------------------------------------
 フェーズ7:値動き予測・売買シグナル機能(要件定義書 7.9節)。
 
-■ 算出方法(要件定義書 v0.16 にて確定。13章の「引き続き検討中の項目」に
-   あった「予測ラインの算出方法」は、以下の「過去の似たパターン探し」
-   方式で実装することにしました。AIサービスは使っていません。
+■ 算出方法(要件定義書 v0.16にて確定・v0.17にて移動平均線を組み合わせて
+   拡張。13章の「引き続き検討中の項目」にあった「予測ラインの算出方法」は、
+   以下の「過去の似たパターン探し」方式で実装しています。AIサービスは
+   使っていません。
 
-  1. 直近window日分(既定20営業日)の終値を、「その期間の始点を0%とした
-     変化率」に変換したものを「現在の値動きパターン」とする
-     (2.4節で使っている「変化率」の考え方と同じ)。
-  2. 同じ銘柄の過去データ全体から、同じ長さ(window日)の値動きパターンを
-     1日ずつずらしながらすべて取り出し、現在のパターンとどれだけ形が
-     似ているか(差の二乗和が小さいほど似ている)を計算する。
-     直近のデータ(現在のパターンと重なる区間)は比較対象から除外する。
+  1. 直近window日分(既定20営業日)について、(a)終値の変化率パターン
+     (その期間の始点を0%とした変化率。2.4節と同じ考え方)と、
+     (b)移動平均線からの乖離率パターン(終値が25日移動平均線からどれだけ
+     離れているか、日ごとの%)の2種類を組み合わせて「現在の値動きパターン」
+     とする(v0.17で追加。ご指定により出来高は組み合わせていない)。
+  2. 同じ銘柄の過去データ全体から、同じ長さ(window日)のパターンを1日ずつ
+     ずらしながらすべて取り出し、現在のパターンと(a)(b)それぞれどれだけ
+     形が似ているか(差の二乗和)を計算し、合計したものを類似度とする
+     (値が小さいほど似ている)。直近のデータ(現在のパターンと重なる区間)や、
+     移動平均線がまだ計算できない期間(データの先頭付近)は比較対象から除外する。
   3. 似ている順に並べ、開始日が近すぎるものばかり選ばれて偏らないように
      一定日数以上離れたものだけを選びながら、代表的な上位3件を選ぶ。
   4. 選んだ各過去パターンについて、「その後horizon日分(既定10営業日)に
@@ -41,6 +45,10 @@ DEFAULT_POOL_SIZE = 30    # 確率計算に使う「類似パターンの母集�
 MIN_GAP_DAYS = 10         # 表示用に選ぶ過去パターン同士の開始日の最低間隔
 FLAT_THRESHOLD_PCT = 2.0  # この範囲(±2%)以内の変化は「横ばい」とみなす
 
+# 類似パターン探しに組み合わせる移動平均線の日数(v0.17)。
+# 「14: 詳細チャートを表示する」の既定値(candle_chart.DEFAULT_MA_DAYS)と揃えている。
+MA_DAYS_FOR_PATTERN = candle_chart.DEFAULT_MA_DAYS
+
 DIRECTION_LABELS = {
     "up": "上昇",
     "down": "下降",
@@ -57,6 +65,37 @@ def _to_pct_change(values):
     if base == 0:
         return [0.0 for _ in values]
     return [(v / base - 1.0) * 100.0 for v in values]
+
+
+def _moving_average(closes, window):
+    """
+    終値のリストから、window日移動平均のリストを計算する。
+    candle_chart._moving_average と同じ考え方(データがwindow日分に
+    満たない先頭部分は None にする)。
+    """
+    result = []
+    for i in range(len(closes)):
+        if i + 1 < window:
+            result.append(None)
+        else:
+            segment = closes[i + 1 - window: i + 1]
+            result.append(sum(segment) / window)
+    return result
+
+
+def _to_ma_position(values, ma_values):
+    """
+    終値のリストを、対応する移動平均線からの乖離率(%)のリストに変換する。
+    (終値 - 移動平均) / 移動平均 × 100。移動平均がまだ計算できない日は
+    None を返す(呼び出し元で「MAが揃っている区間かどうか」の判定に使う)。
+    """
+    result = []
+    for v, ma in zip(values, ma_values):
+        if ma is None or ma == 0:
+            result.append(None)
+        else:
+            result.append((v / ma - 1.0) * 100.0)
+    return result
 
 
 def _distance(pattern_a, pattern_b):
@@ -97,8 +136,18 @@ def find_similar_patterns(closes, window=DEFAULT_WINDOW, horizon=DEFAULT_HORIZON
     if n < window + horizon + 1:
         return None, None
 
+    # v0.17: 終値の変化率パターンに加えて、移動平均線からの乖離率パターンも
+    # 組み合わせて類似度を判定する(ご指定により出来高は組み合わせない)。
+    ma_values = _moving_average(closes, MA_DAYS_FOR_PATTERN)
+
     current_start = n - window
     current_pattern = _to_pct_change(closes[current_start:n])
+    current_ma_pattern = _to_ma_position(closes[current_start:n], ma_values[current_start:n])
+    if any(v is None for v in current_ma_pattern):
+        # 直近window日分に移動平均線がまだ計算できない日が含まれる
+        # (データがごく短い場合)。組み合わせ判定ができないため、
+        # 「データ不足」として扱う。
+        return None, None
 
     all_candidates = []
     last_valid_start = n - window - horizon  # これより後ろから始めると横幅が足りない
@@ -107,8 +156,14 @@ def find_similar_patterns(closes, window=DEFAULT_WINDOW, horizon=DEFAULT_HORIZON
         if start + window > current_start:
             continue
 
+        hist_ma_pattern = _to_ma_position(closes[start:start + window], ma_values[start:start + window])
+        if any(v is None for v in hist_ma_pattern):
+            # この過去区間はまだ移動平均線が計算できていない(データの先頭付近)ため、
+            # 比較対象から除外する。
+            continue
+
         hist_pattern = _to_pct_change(closes[start:start + window])
-        dist = _distance(current_pattern, hist_pattern)
+        dist = _distance(current_pattern, hist_pattern) + _distance(current_ma_pattern, hist_ma_pattern)
 
         # そのパターンの直後、horizon日分の値動き(パターン終了日を0%とした変化率)
         outcome_slice = closes[start + window - 1: start + window + horizon]

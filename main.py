@@ -489,8 +489,8 @@ def handle_news(items):
 
     ニュースはGoogleニュースの検索RSS(日本語・日本向け設定)経由で
     取得するため、追加のAPIキー登録は不要。ニュース本文の「やさしい解説」
-    の自動生成は今回のバージョンでは未対応(README・要件定義書に
-    将来の課題として記載)。
+    の自動生成は、AIサービス連携が必要になるため、v0.17にて対応しない
+    ことを確定した(README・要件定義書を参照)。
     """
     visible = [item for item in items if not item["hidden"]]
     if len(visible) == 0:
