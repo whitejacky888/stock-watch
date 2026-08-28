@@ -13,6 +13,7 @@
 data/
 chart.png
 candle_chart.png
+predict_chart.png
 
 # ---- Pythonが自動生成するキャッシュファイル ----
 __pycache__/

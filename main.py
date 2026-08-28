@@ -20,6 +20,8 @@ import plot_chart
 import glossary
 import news
 import candle_chart
+import predict
+import predict_chart
 
 
 def print_menu(settings):
@@ -33,7 +35,7 @@ def print_menu(settings):
 
     print("")
     print("=" * 50)
-    print("値動きウォッチ フェーズ6 - メニュー")
+    print("値動きウォッチ フェーズ7 - メニュー")
     print("=" * 50)
     print("1: ウォッチリストを表示する")
     print("2: 銘柄を追加する")
@@ -49,6 +51,7 @@ def print_menu(settings):
     print("12: 用語を検索する")
     print("13: 関連ニュースを表示する")
     print("14: 詳細チャートを表示する(ローソク足・移動平均線・出来高)")
+    print("15: 値動き予測を表示する(参考情報・売買シグナル付き)")
     print("0: 終了する")
     print("-" * 50)
 
@@ -572,6 +575,72 @@ def handle_candlestick(items, settings):
     candle_chart.plot_candlestick(ticker, period_days=period_days, period_label=period_label, show_ma=show_ma)
 
 
+def handle_predict(items):
+    """
+    「15: 値動き予測を表示する(参考情報・売買シグナル付き)」が選ばれたときの処理。
+    要件定義書 7.9節・11章フェーズ7に対応。
+
+    predict.py が、過去の似た値動きパターンを探し、その後どうなったかを
+    もとに「予測ライン」(確率が高い順に上位3件)を計算する。あわせて、
+    その3件を確率で重み付けした「売買シグナル(参考)」も表示する。
+
+    ★ 重要 ★ ここで表示する内容は、あくまで過去の統計に基づく参考情報で
+    あり、将来の値動きを保証したり、投資判断の根拠となるものではない
+    (12章の免責事項)。この注意は、実行するたびに必ず画面にも表示する。
+    """
+    if len(items) == 0:
+        print("ウォッチリストに何も登録されていません。")
+        return
+
+    print("")
+    print("値動き予測を見たい銘柄を、1つ選んでください。")
+    for i, item in enumerate(items):
+        print(str(i) + ": " + item["label"] + " (" + item["symbol"] + ")")
+
+    choice = ask_index("番号: ", len(items))
+    if choice is None:
+        return
+
+    ticker = items[choice]
+
+    print("")
+    print("[ステップ1/2] " + ticker["label"] + " のデータを取得しています...")
+    fetch_data.fetch_all([ticker])
+
+    print("[ステップ2/2] 過去の似た値動きパターンを探しています...")
+    dates, closes, patterns = predict.build_predicted_lines(ticker)
+
+    print("")
+    print("=" * 60)
+    print(ticker["label"] + " の値動き予測(参考情報)")
+    print("=" * 60)
+
+    if patterns is None or len(patterns) == 0:
+        print("似た値動きパターンが見つかりませんでした(データが少なすぎる可能性があります)。")
+        print("先に「6」でまとまったデータを取得してから、もう一度お試しください。")
+        return
+
+    for i, pattern in enumerate(patterns):
+        direction_label = predict.DIRECTION_LABELS.get(pattern["direction"], pattern["direction"])
+        based_on_text = pattern["based_on_date"].strftime("%Y-%m-%d")
+        print("[予測{}] 確率(参考値): {:.0f}% / 方向: {} / 類似時期: {}頃".format(
+            i + 1, pattern["probability_pct"], direction_label, based_on_text))
+        print("    " + str(len(pattern["future_prices"])) + "日後の目安株価: {:.2f}".format(
+            pattern["future_prices"][-1]))
+
+    signal_label, signal_note = predict.summarize_signal(patterns)
+    print("-" * 60)
+    print("売買シグナル(参考): " + signal_label)
+    print("  " + signal_note)
+    print("-" * 60)
+    print("※ 上記は、過去の似た値動きパターンのあとに実際どうなったかを集計した")
+    print("  統計的な参考情報です。将来の値動きを保証するものではなく、")
+    print("  投資判断の根拠として使わないでください。")
+    print("  分からない言葉は「12: 用語を検索する」(予測ライン・売買シグナルなど)で調べられます。")
+
+    predict_chart.plot_prediction(ticker, dates, closes, patterns)
+
+
 def handle_fetch_and_plot(items, settings):
     """
     「6: データを取得してグラフを表示する」が選ばれたときの処理。
@@ -644,11 +713,13 @@ def main():
             handle_news(items)
         elif choice == "14":
             handle_candlestick(items, settings)
+        elif choice == "15":
+            handle_predict(items)
         elif choice == "0":
             print("終了します。")
             break
         else:
-            print("0〜14の番号を入力してください。")
+            print("0〜15の番号を入力してください。")
 
 
 # このファイルを直接 "python main.py" で実行したときだけ main() を呼び出す
