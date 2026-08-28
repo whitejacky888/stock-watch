@@ -19,6 +19,7 @@ import fetch_data
 import plot_chart
 import glossary
 import news
+import candle_chart
 
 
 def print_menu(settings):
@@ -32,7 +33,7 @@ def print_menu(settings):
 
     print("")
     print("=" * 50)
-    print("値動きウォッチ フェーズ5 - メニュー")
+    print("値動きウォッチ フェーズ6 - メニュー")
     print("=" * 50)
     print("1: ウォッチリストを表示する")
     print("2: 銘柄を追加する")
@@ -47,6 +48,7 @@ def print_menu(settings):
     print("11: 用語集を表示する")
     print("12: 用語を検索する")
     print("13: 関連ニュースを表示する")
+    print("14: 詳細チャートを表示する(ローソク足・移動平均線・出来高)")
     print("0: 終了する")
     print("-" * 50)
 
@@ -530,6 +532,46 @@ def handle_news(items):
     print("  分からない言葉が出てきたら、「12: 用語を検索する」で調べてみてください。")
 
 
+def handle_candlestick(items, settings):
+    """
+    「14: 詳細チャートを表示する(ローソク足・移動平均線・出来高)」が
+    選ばれたときの処理。要件定義書 7.3節・11章フェーズ6に対応。
+
+    ローソク足は1つの銘柄の値動きを細かく見るためのグラフなので、
+    複数銘柄の比較グラフ(6)とは別に、必ず1つだけ銘柄を選んでもらう。
+    表示期間は「7」で設定した値をそのまま使う(この画面専用の設定は
+    持たない)。移動平均線の表示ON/OFFは、選んだ都度たずねる。
+    """
+    if len(items) == 0:
+        print("ウォッチリストに何も登録されていません。")
+        return
+
+    print("")
+    print("詳細チャートを見たい銘柄を、1つ選んでください。")
+    for i, item in enumerate(items):
+        print(str(i) + ": " + item["label"] + " (" + item["symbol"] + ")")
+
+    choice = ask_index("番号: ", len(items))
+    if choice is None:
+        return
+
+    ticker = items[choice]
+
+    print("")
+    print("[ステップ1/2] " + ticker["label"] + " のデータを取得しています...")
+    fetch_data.fetch_all([ticker])
+
+    ma_input = input("移動平均線(" + str(candle_chart.DEFAULT_MA_DAYS) + "日)を表示しますか?(y/n): ").strip().lower()
+    show_ma = (ma_input == "y")
+
+    period_label, period_days = plot_chart.PERIOD_OPTIONS[settings["period_index"]]
+
+    print("")
+    print("[ステップ2/2] ローソク足チャートを表示します(" + period_label + "・移動平均線"
+          + ("あり" if show_ma else "なし") + ")")
+    candle_chart.plot_candlestick(ticker, period_days=period_days, period_label=period_label, show_ma=show_ma)
+
+
 def handle_fetch_and_plot(items, settings):
     """
     「6: データを取得してグラフを表示する」が選ばれたときの処理。
@@ -600,11 +642,13 @@ def main():
             handle_glossary_search()
         elif choice == "13":
             handle_news(items)
+        elif choice == "14":
+            handle_candlestick(items, settings)
         elif choice == "0":
             print("終了します。")
             break
         else:
-            print("0〜13の番号を入力してください。")
+            print("0〜14の番号を入力してください。")
 
 
 # このファイルを直接 "python main.py" で実行したときだけ main() を呼び出す

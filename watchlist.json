@@ -130,13 +130,43 @@
     "color": "#000000"
   },
   {
-    "key": "sony",
-    "label": "ソニーグループ",
+    "key": "6758_t",
+    "label": "Sony Group Corporation",
     "symbol": "6758.T",
     "kind": "company",
-    "market": "東証プライム",
-    "business": "エレクトロニクス・ゲーム・映画・金融など幅広く手がけるグループ",
+    "market": "不明",
+    "business": "(未入力)",
     "hidden": false,
     "color": "#bcf60c"
+  },
+  {
+    "key": "nvda",
+    "label": "NVIDIA Corporation",
+    "symbol": "NVDA",
+    "kind": "company",
+    "market": "不明",
+    "business": "(未入力)",
+    "hidden": false,
+    "color": "#008080"
+  },
+  {
+    "key": "4755_t",
+    "label": "Rakuten Group, Inc.",
+    "symbol": "4755.T",
+    "kind": "company",
+    "market": "不明",
+    "business": "(未入力)",
+    "hidden": false,
+    "color": "#b8860b"
+  },
+  {
+    "key": "9042_t",
+    "label": "Hankyu Hanshin Holdings, Inc.",
+    "symbol": "9042.T",
+    "kind": "company",
+    "market": "不明",
+    "business": "(未入力)",
+    "hidden": false,
+    "color": "#c71585"
   }
 ]
