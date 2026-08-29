@@ -114,6 +114,25 @@ select {
   color: #7a0016;
 }
 
+.solo-link {
+  cursor: pointer;
+  color: #2e5395;
+  text-decoration: underline;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.solo-link:hover {
+  color: #1c3766;
+}
+
+.note-small {
+  font-size: 0.8rem;
+  color: #666;
+  margin: -0.6rem 0 1rem;
+  min-height: 1.1em;
+}
+
 .delete-disabled {
   color: #999;
   white-space: nowrap;

@@ -26,7 +26,7 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "コーヒー製品の製造・販売",
-    "hidden": true,
+    "hidden": false,
     "color": "#4363d8"
   },
   {
@@ -36,7 +36,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "米菓(せんべい・柿の種など)の製造・販売",
-    "hidden": true,
+    "hidden": false,
     "color": "#f58231"
   },
   {
@@ -46,7 +46,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "国内最大手の医薬品メーカー",
-    "hidden": true,
+    "hidden": false,
     "color": "#911eb4"
   },
   {
@@ -56,7 +56,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "緑茶飲料など飲料の製造・販売(「お〜いお茶」など)",
-    "hidden": true,
+    "hidden": false,
     "color": "#46f0f0"
   },
   {
@@ -66,7 +66,7 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "コーヒー・食品原材料の輸入・卸売",
-    "hidden": true,
+    "hidden": false,
     "color": "#f032e6"
   },
   {
@@ -76,7 +76,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "「牛角」などを展開する外食チェーン",
-    "hidden": true,
+    "hidden": false,
     "color": "#9a6324"
   },
   {
@@ -116,7 +116,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "ハム・ソーセージなど食肉加工品の大手(伊藤ハムの持株会社)",
-    "hidden": false,
+    "hidden": true,
     "color": "#808080"
   },
   {
@@ -126,7 +126,7 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物の卸売(横浜市中央卸売市場を拠点)",
-    "hidden": false,
+    "hidden": true,
     "color": "#000000"
   },
   {
@@ -136,7 +136,7 @@
     "kind": "company",
     "market": "不明",
     "business": "(未入力)",
-    "hidden": false,
+    "hidden": true,
     "color": "#bcf60c"
   },
   {
@@ -146,7 +146,7 @@
     "kind": "company",
     "market": "不明",
     "business": "(未入力)",
-    "hidden": false,
+    "hidden": true,
     "color": "#c71585"
   },
   {
@@ -156,7 +156,7 @@
     "kind": "company",
     "market": "不明",
     "business": "(未入力)",
-    "hidden": false,
+    "hidden": true,
     "color": "#b8860b"
   },
   {
