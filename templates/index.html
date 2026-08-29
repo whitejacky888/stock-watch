@@ -8,11 +8,11 @@
 </head>
 <body>
 <header>
-  <h1>値動きウォッチ(Web版・フェーズ8-2試作)</h1>
+  <h1>値動きウォッチ(Web版・フェーズ8-3試作)</h1>
   <p class="note">
-    今は「ウォッチリスト表示」「比較グラフ表示」「銘柄の表示・非表示」だけを
-    GUI化しています。銘柄の追加・削除、実額表示、用語集、ニュース、詳細
-    チャート(ローソク足など)、値動き予測は、引き続きターミナル版
+    今は「ウォッチリスト表示」「比較グラフ表示」「銘柄の表示・非表示」
+    「銘柄の追加・削除」だけをGUI化しています。実額表示、用語集、ニュース、
+    詳細チャート(ローソク足など)、値動き予測は、引き続きターミナル版
     (<code>python main.py</code>)からご利用ください。データ(ウォッチリスト・
     株価)はどちらから操作しても共通なので、両方を使い分けても内容は同じです。
   </p>
@@ -40,6 +40,37 @@
     <ul id="chart-legend"></ul>
   </section>
 
+  <section id="add-company-section">
+    <h2>銘柄を追加する</h2>
+    <div id="add-step1">
+      <label>
+        証券コード・シンボル
+        <input type="text" id="add-symbol-input" placeholder="例: 7203(日本株) / AAPL(米国株)">
+      </label>
+      <button id="add-lookup-btn">確認する</button>
+    </div>
+    <div id="add-step2" style="display:none;">
+      <p id="add-lookup-result"></p>
+      <label>
+        会社の表示名
+        <input type="text" id="add-name-input">
+      </label>
+      <label>
+        市場区分(分からなければ空欄でOK)
+        <input type="text" id="add-market-input" placeholder="例: 東証プライム">
+      </label>
+      <label>
+        事業内容(空欄でもOK)
+        <input type="text" id="add-business-input" placeholder="例: 自動車の製造・販売">
+      </label>
+      <div id="add-step2-buttons">
+        <button id="add-confirm-btn">この内容で追加する</button>
+        <button id="add-cancel-btn" type="button" class="btn-secondary">キャンセル</button>
+      </div>
+    </div>
+    <p id="add-status-text"></p>
+  </section>
+
   <section id="watchlist-section">
     <h2>ウォッチリスト</h2>
     <table id="watchlist-table">
@@ -51,6 +82,7 @@
           <th>前日比</th>
           <th>市場区分</th>
           <th>事業内容</th>
+          <th>削除</th>
         </tr>
       </thead>
       <tbody></tbody>
