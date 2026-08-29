@@ -23,6 +23,8 @@ class SimpleLineChart {
     this.labels = [];
     this.datasets = [];
     this.title = "";
+    this.isPercent = true;
+    this.unit = "";
     this.geom = null;
 
     this.canvas.addEventListener("mousemove", (e) => this._onMouseMove(e));
@@ -30,12 +32,42 @@ class SimpleLineChart {
     window.addEventListener("resize", () => this.draw());
   }
 
-  setData(labels, datasets, title) {
+  // isPercent: true なら変化率(%)表示、false なら実額表示(フェーズ8-4)。
+  // unit: 実額表示のときの単位("¥"・"$"・"pt")。銘柄によって単位が違うと
+  // 分かりにくいというご指摘を受けて追加した(実額表示は表示中が1件の
+  // ときしか選べないため、その1件の単位をそのまま使えばよい)。
+  setData(labels, datasets, title, isPercent, unit) {
     this.labels = labels;
     this.datasets = datasets;
     this.title = title;
+    this.isPercent = isPercent !== false;
+    this.unit = unit || "";
     this._renderLegend();
     this.draw();
+  }
+
+  // 値を画面表示用の文字列に整形する(変化率なら "+12.34%"、実額なら
+  // 単位に応じて "¥12,345" / "$123.45" / "32,500pt" のようにする。
+  // 数値には3桁ごとの区切り(カンマ)を付ける)。
+  // axis: true のときはY軸の目盛り用の簡易表示(符号なし・小数点1桁)にする。
+  // 実額表示のときのY軸目盛りには単位を付けない(単位は縦軸の左上に
+  // 1回だけ表示すれば十分で、目盛りすべてに付けると見づらいという
+  // ご指摘を受けて、_drawAxisUnitLabel() で1回だけ表示するようにした)。
+  _formatValue(v, options) {
+    const axis = !!(options && options.axis);
+    const digits = axis ? 1 : 2;
+    if (this.isPercent) {
+      const sign = !axis && v >= 0 ? "+" : "";
+      return sign + v.toFixed(digits) + "%";
+    }
+    const rounded = v.toLocaleString("ja-JP", { maximumFractionDigits: digits });
+    if (axis) {
+      return rounded;
+    }
+    if (this.unit === "pt") {
+      return rounded + "pt";
+    }
+    return this.unit + rounded;
   }
 
   _renderLegend() {
@@ -75,7 +107,10 @@ class SimpleLineChart {
       return;
     }
 
-    const padding = { top: 26, right: 16, bottom: 34, left: 52 };
+    // top を少し広めに取っているのは、タイトルと一番上の目盛りの間に、
+    // 単位ラベル(「(¥)」など)専用の行を、重ならないだけの余白を持たせて
+    // 確保するため。
+    const padding = { top: 44, right: 16, bottom: 34, left: 52 };
     const plotWidth = Math.max(10, cssWidth - padding.left - padding.right);
     const plotHeight = Math.max(10, cssHeight - padding.top - padding.bottom);
 
@@ -126,7 +161,17 @@ class SimpleLineChart {
       ctx.moveTo(padding.left, y);
       ctx.lineTo(cssWidth - padding.right, y);
       ctx.stroke();
-      ctx.fillText(v.toFixed(1) + "%", padding.left - 6, y + 3);
+      ctx.fillText(this._formatValue(v, { axis: true }), padding.left - 6, y + 3);
+    }
+
+    // 実額表示のときは、縦軸の目盛り1つ1つに単位を付けず、縦軸の左上に
+    // 「(¥)」のように1回だけ単位を表示する(¥・$・ptのどれなのかさえ
+    // 分かればよく、全部の目盛りに付けると見づらいというご指摘への対応)。
+    if (!this.isPercent && this.unit) {
+      ctx.fillStyle = "#666";
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("(" + this.unit + ")", padding.left - 6, padding.top - 16);
     }
 
     // 0%の基準線(強調)
@@ -261,11 +306,10 @@ class SimpleLineChart {
       this.tooltip.style.display = "none";
       return;
     }
-    const sign = v >= 0 ? "+" : "";
     const lines = [
       "<strong>" + this.labels[idx] + "</strong>",
       '<span style="color:' + (ds.borderColor || "#888") + '">●</span> ' +
-        ds.label + ": " + sign + v.toFixed(2) + "%",
+        ds.label + ": " + this._formatValue(v),
     ];
     this.tooltip.innerHTML = lines.join("<br>");
     this.tooltip.style.display = "block";
@@ -320,7 +364,7 @@ async function loadWatchlist() {
       '<td data-label="前日比" class="' + changeClass + '">' + changeText + "</td>" +
       '<td data-label="市場区分">' + item.market + "</td>" +
       '<td data-label="事業内容">' + item.business + "</td>" +
-      '<td data-label="削除"></td>';
+      '<td data-label="操作"></td>';
 
     // 「状態」セル自体を表示・非表示の切り替えボタンにする(フェーズ8-2)。
     // 表示中は赤の太字、非表示は黒の通常文字にして、押すと逆の状態に
@@ -335,25 +379,58 @@ async function loadWatchlist() {
     statusToggle.dataset.hidden = String(item.hidden);
     statusCell.appendChild(statusToggle);
 
-    // 「削除」セル(フェーズ8-3)。基本の2指数(日経平均・NASDAQ)は
-    // 削除できない仕様(7.1節)なので、個別銘柄のときだけリンクを出す。
-    const deleteCell = tr.lastElementChild;
+    // 「操作」セル。ソロ表示(フェーズ8-4)は指数・個別銘柄を問わず選べるが、
+    // 削除(フェーズ8-3)は基本の2指数(日経平均・NASDAQ)にはできない
+    // 仕様(7.1節)なので、個別銘柄のときだけリンクを出す。
+    const opCell = tr.lastElementChild;
+    const soloLink = document.createElement("span");
+    soloLink.className = "solo-link";
+    soloLink.textContent = "ソロ表示";
+    soloLink.title = "この銘柄だけを表示し、他はすべて非表示にします";
+    soloLink.dataset.key = item.key;
+    soloLink.dataset.label = item.label;
+    opCell.appendChild(soloLink);
+    opCell.appendChild(document.createTextNode(" / "));
+
     if (item.kind === "company") {
       const deleteLink = document.createElement("span");
       deleteLink.className = "delete-link";
       deleteLink.textContent = "削除";
       deleteLink.dataset.key = item.key;
       deleteLink.dataset.label = item.label;
-      deleteCell.appendChild(deleteLink);
+      opCell.appendChild(deleteLink);
     } else {
       const disabled = document.createElement("span");
       disabled.className = "delete-disabled";
       disabled.textContent = "(削除不可)";
-      deleteCell.appendChild(disabled);
+      opCell.appendChild(disabled);
     }
 
     tbody.appendChild(tr);
   });
+
+  // 表示中(非hidden)の件数に応じて、実額表示が選べるかどうかを切り替える
+  // (フェーズ8-4。ターミナル版と同じく、表示中がちょうど1件のときだけ許可)。
+  const visibleCount = items.filter((item) => !item.hidden).length;
+  syncModeAvailability(visibleCount);
+}
+
+function syncModeAvailability(visibleCount) {
+  const modeSelect = document.getElementById("mode-select");
+  const absoluteOption = modeSelect.querySelector('option[value="absolute"]');
+  const note = document.getElementById("mode-note");
+
+  if (visibleCount === 1) {
+    absoluteOption.disabled = false;
+    note.textContent = "";
+  } else {
+    if (modeSelect.value === "absolute") {
+      modeSelect.value = "percent";
+    }
+    absoluteOption.disabled = true;
+    note.textContent =
+      "※実額表示は、表示中の銘柄がちょうど1つのときだけ選べます(現在: " + visibleCount + "件表示中)。";
+  }
 }
 
 // ウォッチリストの「状態」表示(表示中/非表示)や「削除」リンクのクリックを、
@@ -414,6 +491,49 @@ document.querySelector("#watchlist-table tbody").addEventListener("click", async
       alert("削除に失敗しました。通信状況を確認してください。");
       deleteEl.style.pointerEvents = "";
     }
+    return;
+  }
+
+  const soloEl = e.target.closest(".solo-link");
+  if (soloEl) {
+    const key = soloEl.dataset.key;
+    soloEl.style.pointerEvents = "none";
+    try {
+      const res = await fetch("/api/solo_display", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: key }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        document.getElementById("status-text").textContent = body.message || "";
+        await loadWatchlist();
+        await loadChart(currentPeriodIndex());
+      } else {
+        alert(body.message || "切り替えに失敗しました。");
+        soloEl.style.pointerEvents = "";
+      }
+    } catch (err) {
+      alert("切り替えに失敗しました。通信状況を確認してください。");
+      soloEl.style.pointerEvents = "";
+    }
+  }
+});
+
+document.getElementById("show-all-btn").addEventListener("click", async () => {
+  const statusText = document.getElementById("status-text");
+  try {
+    const res = await fetch("/api/show_all", { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      statusText.textContent = body.message || "全ての銘柄を表示に戻しました。";
+      await loadWatchlist();
+      await loadChart(currentPeriodIndex());
+    } else {
+      statusText.textContent = body.message || "失敗しました。";
+    }
+  } catch (err) {
+    statusText.textContent = "失敗しました。通信状況を確認してください。";
   }
 });
 
@@ -523,8 +643,18 @@ document.getElementById("add-confirm-btn").addEventListener("click", async () =>
 });
 
 async function loadChart(periodIndex) {
-  const res = await fetch("/api/chart_data?period=" + periodIndex);
+  const requestedMode = currentModeValue();
+  const res = await fetch("/api/chart_data?period=" + periodIndex + "&mode=" + requestedMode);
   const data = await res.json();
+
+  // 実額表示を要求しても、表示中の銘柄が1件でなければサーバー側で
+  // "percent" に戻される(フェーズ8-4)。実際に使われたモードに、
+  // 表示モードの選択欄も合わせておく。
+  const modeSelect = document.getElementById("mode-select");
+  if (modeSelect.value !== data.mode) {
+    modeSelect.value = data.mode;
+  }
+  const isPercent = data.mode !== "absolute";
 
   // すべての系列に出てくる日付をまとめて、横軸のラベルにする
   const labelSet = new Set();
@@ -558,11 +688,19 @@ async function loadChart(periodIndex) {
     };
   });
 
-  priceChart.setData(labels, datasets, "値動きウォッチ(変化率・" + data.period_label + ")");
+  // 実額表示のときは、銘柄ごとに単位(¥/$/pt)が違うので、タイトルにも
+  // 表示しておく(実額の場合、サーバー側の制約により系列は必ず1件になる)。
+  const unit = data.series.length > 0 ? data.series[0].unit : "";
+  const modeLabel = isPercent ? "変化率" : "実額(" + unit + ")";
+  priceChart.setData(labels, datasets, "値動きウォッチ(" + modeLabel + "・" + data.period_label + ")", isPercent, unit);
 }
 
 function currentPeriodIndex() {
   return document.getElementById("period-select").value;
+}
+
+function currentModeValue() {
+  return document.getElementById("mode-select").value;
 }
 
 document.getElementById("fetch-btn").addEventListener("click", async () => {
@@ -585,6 +723,25 @@ document.getElementById("fetch-btn").addEventListener("click", async () => {
 document.getElementById("period-select").addEventListener("change", (e) => {
   loadChart(e.target.value);
 });
+
+document.getElementById("mode-select").addEventListener("change", () => {
+  loadChart(currentPeriodIndex());
+});
+
+// ブラウザ(このページ)を開いている間、数秒おきにサーバーへ「まだ
+// 使っています」の合図(heartbeat)を送る。ブラウザを閉じる、または
+// このページから離れると自動的に送信が止まり、サーバー側がそれを
+// 検知してアプリを自動終了する仕組みになっている(app.py参照。
+// 「アイコンから起動したアプリを、ブラウザを閉じたら自動で終了させて
+// ほしい」というご要望に対応するために追加した)。
+function sendHeartbeat() {
+  fetch("/api/heartbeat", { method: "POST" }).catch(() => {
+    // サーバーが終了処理中などで送信に失敗しても、ここでは何もしない
+    // (次のheartbeatも失敗し続ければ、いずれサーバー側は終了する)
+  });
+}
+sendHeartbeat();
+setInterval(sendHeartbeat, 3000);
 
 // 画面を開いたときに、まず現在のデータで表とグラフを表示する
 loadWatchlist();

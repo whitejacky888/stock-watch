@@ -140,6 +140,27 @@ def to_percent_change(closes):
     return result
 
 
+def get_unit(ticker):
+    """
+    実額表示のときに使う「単位」を返す関数(フェーズ8-4の改良)。
+    実額は銘柄ごとに単位がバラバラなので、グラフやツールチップに
+    はっきり表示できるよう、次のルールで判定する。
+
+      ・指数(日経平均・NASDAQ)        → "pt"(ポイント。円やドルではない)
+      ・日本株(シンボルが ".T" で終わる) → "¥"
+      ・それ以外(米国株など)           → "$"
+
+    watchlist.normalize_symbol() が、日本株の証券コードには必ず ".T" を
+    付ける仕様になっていることを利用した簡易判定(厳密な通貨判定では
+    ないが、本ツールが扱う銘柄の範囲では十分)。
+    """
+    if ticker["kind"] == "index":
+        return "pt"
+    if ticker["symbol"].upper().endswith(".T"):
+        return "¥"
+    return "$"
+
+
 def filter_recent(dates, closes, period_days):
     """
     (日付のリスト, 終値のリスト) から、直近 period_days日分だけを

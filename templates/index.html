@@ -8,13 +8,14 @@
 </head>
 <body>
 <header>
-  <h1>値動きウォッチ(Web版・フェーズ8-3試作)</h1>
+  <h1>値動きウォッチ(Web版・フェーズ8-4試作)</h1>
   <p class="note">
     今は「ウォッチリスト表示」「比較グラフ表示」「銘柄の表示・非表示」
-    「銘柄の追加・削除」だけをGUI化しています。実額表示、用語集、ニュース、
-    詳細チャート(ローソク足など)、値動き予測は、引き続きターミナル版
-    (<code>python main.py</code>)からご利用ください。データ(ウォッチリスト・
-    株価)はどちらから操作しても共通なので、両方を使い分けても内容は同じです。
+    「銘柄の追加・削除」「実額表示・ソロ表示」だけをGUI化しています。用語集、
+    ニュース、詳細チャート(ローソク足など)、値動き予測は、引き続き
+    ターミナル版(<code>python main.py</code>)からご利用ください。データ
+    (ウォッチリスト・株価)はどちらから操作しても共通なので、両方を
+    使い分けても内容は同じです。
   </p>
 </header>
 
@@ -29,8 +30,17 @@
         {% endfor %}
       </select>
     </label>
+    <label>
+      表示モード:
+      <select id="mode-select">
+        <option value="percent" selected>変化率(%)</option>
+        <option value="absolute">実額</option>
+      </select>
+    </label>
+    <button id="show-all-btn" class="btn-secondary">全ての銘柄を表示に戻す</button>
     <span id="status-text"></span>
   </section>
+  <p id="mode-note" class="note-small"></p>
 
   <section id="chart-section">
     <div id="chart-container">
@@ -82,7 +92,7 @@
           <th>前日比</th>
           <th>市場区分</th>
           <th>事業内容</th>
-          <th>削除</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody></tbody>
