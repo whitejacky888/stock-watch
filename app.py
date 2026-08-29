@@ -11,14 +11,15 @@ app.py
 います。
 
 【段階的に進めます(要件定義書11章フェーズ8)】
-これまでにGUI化したのは、次の3つです。
+これまでにGUI化したのは、次の4つです。
   ・ウォッチリストの一覧表示(前日比つき)【フェーズ8-1】
   ・複数銘柄の比較グラフ(折れ線・変化率、期間の切り替え)【フェーズ8-1】
   ・銘柄の表示・非表示の切り替え【フェーズ8-2】
-銘柄の追加・削除、実額表示、用語集、ニュース、詳細チャート
-(ローソク足・移動平均線・出来高)、値動き予測といった機能は、まだ
-Web版には入っていません。次回以降のフェーズで少しずつ追加していく
-予定です。それまでの間、これらの操作は今まで通り
+  ・銘柄の追加・削除【フェーズ8-3】
+実額表示、用語集、ニュース、詳細チャート(ローソク足・移動平均線・
+出来高)、値動き予測といった機能は、まだWeb版には入っていません。
+次回以降のフェーズで少しずつ追加していく予定です。それまでの間、
+これらの操作は今まで通り
     python main.py
 (ターミナル版)から行ってください。ウォッチリストのデータ
 (watchlist.json)や株価データ(data/フォルダの中のCSV)は、ターミナル版・
@@ -137,6 +138,88 @@ def api_toggle_hidden():
         return jsonify({"status": "error", "message": "指定された銘柄が見つかりません。"}), 404
 
     ok, message = watchlist.set_hidden(items, index, hidden)
+    if not ok:
+        return jsonify({"status": "error", "message": message}), 400
+    return jsonify({"status": "ok", "message": message})
+
+
+@app.route("/api/lookup_company", methods=["POST"])
+def api_lookup_company():
+    """
+    銘柄追加(フェーズ8-3)の、追加前の下調べ用API。
+    証券コード・シンボルを受け取り、
+      ・個別銘柄の登録数がすでに上限に達していないか
+      ・同じシンボルがすでに登録されていないか
+    をチェックしたうえで、yfinanceで会社名の自動取得を試みる。
+    (ターミナル版 main.py の handle_add 前半と同じ考え方をAPI化したもの。
+     ここではまだウォッチリストへの追加は行わない。実際の追加は
+     この結果を画面で確認してもらってから /api/add_company で行う)
+    リクエストボディ(JSON)例: {"input": "7203"}
+    """
+    payload = request.get_json(silent=True) or {}
+    user_input = (payload.get("input") or "").strip()
+    if user_input == "":
+        return jsonify({"status": "error", "message": "証券コード・シンボルを入力してください。"}), 400
+
+    items = watchlist.load_watchlist()
+    if watchlist.count_companies(items) >= watchlist.MAX_COMPANIES:
+        message = ("個別銘柄はすでに上限の" + str(watchlist.MAX_COMPANIES) +
+                   "社に達しています。追加するには、先に何か1社を削除してください。")
+        return jsonify({"status": "error", "message": message}), 400
+
+    symbol = watchlist.normalize_symbol(user_input)
+    if watchlist.find_by_symbol(items, symbol) is not None:
+        return jsonify({"status": "error", "message": "そのシンボル(" + symbol + ")はすでにウォッチリストに登録されています。"}), 400
+
+    name = watchlist.fetch_company_name(symbol)
+    return jsonify({"status": "ok", "symbol": symbol, "name": name})
+
+
+@app.route("/api/add_company", methods=["POST"])
+def api_add_company():
+    """
+    銘柄をウォッチリストに追加するAPI(フェーズ8-3)。
+    事前に /api/lookup_company で確認したシンボル・会社名に、市場区分・
+    事業内容(どちらも空欄可・その場合は「不明」「(未入力)」になる)を
+    添えて呼び出す。実際の登録処理は watchlist.add_company が行う
+    (ターミナル版と共通)。
+    リクエストボディ(JSON)例:
+      {"symbol": "7203.T", "name": "トヨタ自動車", "market": "東証プライム", "business": "自動車"}
+    """
+    payload = request.get_json(silent=True) or {}
+    symbol = (payload.get("symbol") or "").strip()
+    name = (payload.get("name") or "").strip()
+    market = (payload.get("market") or "").strip() or "不明"
+    business = (payload.get("business") or "").strip() or "(未入力)"
+
+    if symbol == "" or name == "":
+        return jsonify({"status": "error", "message": "シンボルと会社の表示名は必須です。"}), 400
+
+    items = watchlist.load_watchlist()
+    ok, message = watchlist.add_company(items, symbol, name, market, business)
+    if not ok:
+        return jsonify({"status": "error", "message": message}), 400
+    return jsonify({"status": "ok", "message": message})
+
+
+@app.route("/api/remove_company", methods=["POST"])
+def api_remove_company():
+    """
+    ウォッチリストから1件を完全に削除するAPI(フェーズ8-3)。
+    「削除」であって「非表示」ではないため、元に戻せない(データも消える)。
+    基本の2指数(日経平均・NASDAQ)は削除できない仕様のため、
+    watchlist.remove_company側でチェックしてエラーメッセージを返す。
+    リクエストボディ(JSON)例: {"key": "keycoffee"}
+    """
+    payload = request.get_json(silent=True) or {}
+    key = payload.get("key")
+
+    items = watchlist.load_watchlist()
+    index = next((i for i, item in enumerate(items) if item["key"] == key), None)
+    if index is None:
+        return jsonify({"status": "error", "message": "指定された銘柄が見つかりません。"}), 404
+
+    ok, message = watchlist.remove_company(items, index)
     if not ok:
         return jsonify({"status": "error", "message": message}), 400
     return jsonify({"status": "ok", "message": message})

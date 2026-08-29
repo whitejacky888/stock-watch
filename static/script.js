@@ -319,7 +319,8 @@ async function loadWatchlist() {
       '<td data-label="銘柄" style="color:' + nameColor + '"><strong>' + item.label + "</strong> (" + item.symbol + ")</td>" +
       '<td data-label="前日比" class="' + changeClass + '">' + changeText + "</td>" +
       '<td data-label="市場区分">' + item.market + "</td>" +
-      '<td data-label="事業内容">' + item.business + "</td>";
+      '<td data-label="事業内容">' + item.business + "</td>" +
+      '<td data-label="削除"></td>';
 
     // 「状態」セル自体を表示・非表示の切り替えボタンにする(フェーズ8-2)。
     // 表示中は赤の太字、非表示は黒の通常文字にして、押すと逆の状態に
@@ -334,38 +335,190 @@ async function loadWatchlist() {
     statusToggle.dataset.hidden = String(item.hidden);
     statusCell.appendChild(statusToggle);
 
+    // 「削除」セル(フェーズ8-3)。基本の2指数(日経平均・NASDAQ)は
+    // 削除できない仕様(7.1節)なので、個別銘柄のときだけリンクを出す。
+    const deleteCell = tr.lastElementChild;
+    if (item.kind === "company") {
+      const deleteLink = document.createElement("span");
+      deleteLink.className = "delete-link";
+      deleteLink.textContent = "削除";
+      deleteLink.dataset.key = item.key;
+      deleteLink.dataset.label = item.label;
+      deleteCell.appendChild(deleteLink);
+    } else {
+      const disabled = document.createElement("span");
+      disabled.className = "delete-disabled";
+      disabled.textContent = "(削除不可)";
+      deleteCell.appendChild(disabled);
+    }
+
     tbody.appendChild(tr);
   });
 }
 
-// ウォッチリストの「状態」表示(表示中/非表示)のクリックを、
+// ウォッチリストの「状態」表示(表示中/非表示)や「削除」リンクのクリックを、
 // 表全体(tbody)で1つだけ受け止めて処理する(行を作り直すたびに
 // 個別にリスナーを付け直さなくて済むようにするため)。
 document.querySelector("#watchlist-table tbody").addEventListener("click", async (e) => {
-  const el = e.target.closest(".status-toggle");
-  if (!el) return;
+  const toggleEl = e.target.closest(".status-toggle");
+  if (toggleEl) {
+    const key = toggleEl.dataset.key;
+    const nextHidden = toggleEl.dataset.hidden !== "true"; // 今と逆の状態にする
 
-  const key = el.dataset.key;
-  const nextHidden = el.dataset.hidden !== "true"; // 今と逆の状態にする
+    toggleEl.style.pointerEvents = "none";
+    try {
+      const res = await fetch("/api/toggle_hidden", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: key, hidden: nextHidden }),
+      });
+      if (res.ok) {
+        await loadWatchlist();
+        await loadChart(currentPeriodIndex());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert(body.message || "切り替えに失敗しました。");
+        toggleEl.style.pointerEvents = "";
+      }
+    } catch (err) {
+      alert("切り替えに失敗しました。通信状況を確認してください。");
+      toggleEl.style.pointerEvents = "";
+    }
+    return;
+  }
 
-  el.style.pointerEvents = "none";
+  const deleteEl = e.target.closest(".delete-link");
+  if (deleteEl) {
+    const key = deleteEl.dataset.key;
+    const label = deleteEl.dataset.label;
+    // ターミナル版と同じく、削除は元に戻せない操作なので必ず確認を挟む。
+    const confirmed = window.confirm(label + " を本当に削除しますか?(この操作は元に戻せません)");
+    if (!confirmed) return;
+
+    deleteEl.style.pointerEvents = "none";
+    try {
+      const res = await fetch("/api/remove_company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: key }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await loadWatchlist();
+        await loadChart(currentPeriodIndex());
+      } else {
+        alert(body.message || "削除に失敗しました。");
+        deleteEl.style.pointerEvents = "";
+      }
+    } catch (err) {
+      alert("削除に失敗しました。通信状況を確認してください。");
+      deleteEl.style.pointerEvents = "";
+    }
+  }
+});
+
+// ------------------------------------------------------------
+// 銘柄の追加(フェーズ8-3)
+// ターミナル版 main.py の handle_add と同じ流れ(シンボル入力 →
+// yfinanceで会社名を自動確認 → 市場区分・事業内容を入力 → 確認して追加)を、
+// 「確認する」→「この内容で追加する」の2段階フォームで再現している。
+// ------------------------------------------------------------
+let pendingAddSymbol = null;
+
+function resetAddForm() {
+  pendingAddSymbol = null;
+  document.getElementById("add-symbol-input").value = "";
+  document.getElementById("add-name-input").value = "";
+  document.getElementById("add-market-input").value = "";
+  document.getElementById("add-business-input").value = "";
+  document.getElementById("add-lookup-result").textContent = "";
+  document.getElementById("add-step1").style.display = "flex";
+  document.getElementById("add-step2").style.display = "none";
+}
+
+document.getElementById("add-lookup-btn").addEventListener("click", async () => {
+  const input = document.getElementById("add-symbol-input");
+  const statusText = document.getElementById("add-status-text");
+  const userInput = input.value.trim();
+  if (userInput === "") {
+    statusText.textContent = "証券コード・シンボルを入力してください。";
+    return;
+  }
+
+  statusText.textContent = "yfinanceで情報を確認しています...";
   try {
-    const res = await fetch("/api/toggle_hidden", {
+    const res = await fetch("/api/lookup_company", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: key, hidden: nextHidden }),
+      body: JSON.stringify({ input: userInput }),
     });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      statusText.textContent = body.message || "確認に失敗しました。";
+      return;
+    }
+
+    pendingAddSymbol = body.symbol;
+    statusText.textContent = "";
+    const resultEl = document.getElementById("add-lookup-result");
+    const nameInput = document.getElementById("add-name-input");
+    if (body.name) {
+      resultEl.textContent = "見つかりました: " + body.name + "(シンボル: " + body.symbol + ")";
+      nameInput.value = body.name;
+    } else {
+      resultEl.textContent =
+        "会社名を自動取得できませんでした(シンボル: " + body.symbol +
+        ")。よろしければ下に表示名を直接入力してください。";
+      nameInput.value = "";
+    }
+    document.getElementById("add-step1").style.display = "none";
+    document.getElementById("add-step2").style.display = "flex";
+  } catch (err) {
+    statusText.textContent = "確認に失敗しました。通信状況を確認してください。";
+  }
+});
+
+document.getElementById("add-cancel-btn").addEventListener("click", () => {
+  resetAddForm();
+  document.getElementById("add-status-text").textContent = "追加を中止しました。";
+});
+
+document.getElementById("add-confirm-btn").addEventListener("click", async () => {
+  const statusText = document.getElementById("add-status-text");
+  const name = document.getElementById("add-name-input").value.trim();
+  const market = document.getElementById("add-market-input").value.trim();
+  const business = document.getElementById("add-business-input").value.trim();
+
+  if (!pendingAddSymbol) {
+    statusText.textContent = "もう一度シンボルを確認してください。";
+    return;
+  }
+  if (name === "") {
+    statusText.textContent = "会社の表示名を入力してください。";
+    return;
+  }
+
+  const btn = document.getElementById("add-confirm-btn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/add_company", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol: pendingAddSymbol, name: name, market: market, business: business }),
+    });
+    const body = await res.json().catch(() => ({}));
     if (res.ok) {
+      statusText.textContent = body.message || "追加しました。";
+      resetAddForm();
       await loadWatchlist();
       await loadChart(currentPeriodIndex());
     } else {
-      const body = await res.json().catch(() => ({}));
-      alert(body.message || "切り替えに失敗しました。");
-      el.style.pointerEvents = "";
+      statusText.textContent = body.message || "追加に失敗しました。";
     }
   } catch (err) {
-    alert("切り替えに失敗しました。通信状況を確認してください。");
-    el.style.pointerEvents = "";
+    statusText.textContent = "追加に失敗しました。通信状況を確認してください。";
+  } finally {
+    btn.disabled = false;
   }
 });
 

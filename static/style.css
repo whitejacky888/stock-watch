@@ -98,6 +98,83 @@ select {
   font-size: 0.95rem;
 }
 
+.btn-secondary {
+  background: #888;
+}
+
+.delete-link {
+  cursor: pointer;
+  color: #b00020;
+  text-decoration: underline;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.delete-link:hover {
+  color: #7a0016;
+}
+
+.delete-disabled {
+  color: #999;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+#add-company-section {
+  background: white;
+  padding: 1rem 1.2rem;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+}
+
+#add-step1 {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+#add-step2 {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  max-width: 420px;
+}
+
+#add-company-section label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: #444;
+  gap: 0.3rem;
+}
+
+#add-company-section input[type="text"] {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.95rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  min-width: 220px;
+}
+
+#add-step2-buttons {
+  display: flex;
+  gap: 0.7rem;
+}
+
+#add-lookup-result {
+  font-size: 0.88rem;
+  color: #333;
+  margin: 0;
+}
+
+#add-status-text {
+  font-size: 0.85rem;
+  color: #555;
+  min-height: 1.2em;
+}
+
 #status-text {
   font-size: 0.85rem;
   color: #555;
@@ -195,7 +272,8 @@ td.down {
 }
 
 @media (max-width: 640px) {
-  #controls {
+  #controls,
+  #add-step1 {
     flex-direction: column;
     align-items: flex-start;
   }
