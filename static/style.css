@@ -290,9 +290,178 @@ td.down {
   font-weight: bold;
 }
 
+/* ------------------------------------------------------------
+   フェーズ8-5:用語集・ニュース・詳細チャート・値動き予測
+   ------------------------------------------------------------ */
+
+#glossary-section,
+#news-section,
+#candle-section,
+#predict-section {
+  background: white;
+  padding: 1rem 1.2rem;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+}
+
+#glossary-search-row,
+#news-controls-row,
+#candle-controls-row,
+#predict-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+#glossary-search-input {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.95rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  min-width: 220px;
+  flex: 1 1 220px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+/* 用語集 */
+.glossary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.glossary-list li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #ececec;
+}
+
+.glossary-list li:last-child {
+  border-bottom: none;
+}
+
+.glossary-term {
+  font-weight: bold;
+  color: #2e5395;
+  margin-bottom: 0.2rem;
+}
+
+.glossary-description {
+  font-size: 0.9rem;
+  color: #333;
+  line-height: 1.5;
+}
+
+.glossary-list mark {
+  background: #ffe58a;
+  color: inherit;
+  padding: 0 0.1rem;
+  border-radius: 2px;
+}
+
+/* ニュース */
+.news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.news-list li {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #ececec;
+}
+
+.news-list li:last-child {
+  border-bottom: none;
+}
+
+.news-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.news-tag {
+  font-size: 0.75rem;
+  font-weight: bold;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.05rem 0.4rem;
+  white-space: nowrap;
+}
+
+.news-title {
+  font-size: 0.92rem;
+}
+
+.news-title a {
+  color: #222;
+  text-decoration: none;
+}
+
+.news-title a:hover {
+  text-decoration: underline;
+  color: #2e5395;
+}
+
+.news-meta {
+  font-size: 0.78rem;
+  color: #777;
+  margin-top: 0.2rem;
+}
+
+/* 詳細チャート・値動き予測(画像表示) */
+#candle-image-container,
+#predict-image-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+#candle-image,
+#predict-image {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.predict-pattern-list {
+  list-style: none;
+  margin: 0 0 0.8rem;
+  padding: 0;
+  font-size: 0.88rem;
+}
+
+.predict-pattern-list li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #ececec;
+}
+
+.predict-signal {
+  font-size: 0.92rem;
+  background: #fff7e6;
+  border: 1px solid #f0dca0;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0 0 0.8rem;
+}
+
 @media (max-width: 640px) {
   #controls,
-  #add-step1 {
+  #add-step1,
+  #glossary-search-row,
+  #news-controls-row,
+  #candle-controls-row,
+  #predict-controls-row {
     flex-direction: column;
     align-items: flex-start;
   }

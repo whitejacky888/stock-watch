@@ -21,6 +21,7 @@ plot_chart.py(複数銘柄の比較用の折れ線グラフ)とは別に実装�
 """
 
 import os
+import io
 import csv
 import datetime
 
@@ -128,17 +129,20 @@ def _moving_average(closes, window):
     return result
 
 
-def plot_candlestick(ticker, period_days=None, period_label=None, show_ma=True, ma_days=DEFAULT_MA_DAYS):
+def _build_figure(ticker, period_days=None, period_label=None, show_ma=True, ma_days=DEFAULT_MA_DAYS, quiet=False):
     """
-    1つのティッカーについて、ローソク足チャート(上段)・出来高(下段)を
-    表示する関数。show_ma=True のとき、上段に移動平均線を重ねて表示する。
+    ローソク足チャート(上段)・出来高(下段)のfigure(matplotlibの図)を
+    組み立てて返す関数。ターミナル版(plot_candlestick、画面に表示・
+    ファイル保存する)とWeb版(render_candlestick_png、PNG画像として
+    返す。フェーズ8-5)の両方から、この関数を呼び出して同じ描画ロジックを
+    再利用する。
 
-    データが取得できていない場合は、何もせずメッセージだけ表示して終了する
-    (呼び出し元でエラー処理をしなくてよいようにするため)。
+    データが取得できていない場合は None を返す(quiet=Falseのときは
+    load_ohlcv側でエラーメッセージを表示する)。
     """
-    data = load_ohlcv(ticker)
+    data = load_ohlcv(ticker, quiet=quiet)
     if data is None:
-        return
+        return None
 
     data = _filter_recent(data, period_days)
     dates = data["dates"]
@@ -207,6 +211,22 @@ def plot_candlestick(ticker, period_days=None, period_label=None, show_ma=True, 
     ax_volume.set_xticklabels(tick_labels, rotation=45, ha="right")
 
     fig.tight_layout()
+    return fig
+
+
+def plot_candlestick(ticker, period_days=None, period_label=None, show_ma=True, ma_days=DEFAULT_MA_DAYS):
+    """
+    1つのティッカーについて、ローソク足チャート(上段)・出来高(下段)を
+    表示する関数(ターミナル版)。show_ma=True のとき、上段に移動平均線を
+    重ねて表示する。
+
+    データが取得できていない場合は、何もせずメッセージだけ表示して終了する
+    (呼び出し元でエラー処理をしなくてよいようにするため)。
+    """
+    fig = _build_figure(ticker, period_days=period_days, period_label=period_label,
+                         show_ma=show_ma, ma_days=ma_days, quiet=False)
+    if fig is None:
+        return
 
     # ---- 画像としても保存しておく(グラフウィンドウが開けない環境向け) ----
     output_path = "candle_chart.png"
@@ -219,3 +239,24 @@ def plot_candlestick(ticker, period_days=None, period_label=None, show_ma=True, 
     except Exception as e:
         print("(グラフウィンドウの表示に失敗しました: " + str(e) + ")")
         print("代わりに " + os.path.abspath(output_path) + " を開いて確認してください。")
+
+
+def render_candlestick_png(ticker, period_days=None, period_label=None, show_ma=True, ma_days=DEFAULT_MA_DAYS):
+    """
+    Web版(フェーズ8-5)用:ローソク足チャート(上段)・出来高(下段)を、
+    ファイル保存やウィンドウ表示をせず、PNG画像のバイト列として返す関数。
+    GUI版の詳細チャート画面(/api/candle_chart.png)から呼び出す。
+
+    データが取得できていない場合は None を返す(呼び出し元でエラー
+    メッセージを表示する)。
+    """
+    fig = _build_figure(ticker, period_days=period_days, period_label=period_label,
+                         show_ma=show_ma, ma_days=ma_days, quiet=True)
+    if fig is None:
+        return None
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110)
+    plt.close(fig)  # Webサーバーは動き続けるプロセスなので、使い終わった図は必ず閉じてメモリを解放する
+    buf.seek(0)
+    return buf.getvalue()

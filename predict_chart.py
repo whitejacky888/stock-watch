@@ -14,6 +14,7 @@ predict_chart.py
 """
 
 import os
+import io
 import datetime
 
 import matplotlib.pyplot as plt
@@ -50,10 +51,14 @@ def _future_business_dates(start_date, count):
     return result
 
 
-def plot_prediction(ticker, dates, closes, patterns, horizon=predict.DEFAULT_HORIZON,
-                     display_days=HISTORY_DISPLAY_DAYS):
+def _build_figure(ticker, dates, closes, patterns, horizon=predict.DEFAULT_HORIZON,
+                   display_days=HISTORY_DISPLAY_DAYS):
     """
-    直近の値動き(実績)の折れ線に続けて、上位3件の予測ラインを表示する。
+    直近の値動き(実績)の折れ線に続けて、上位3件の予測ラインを重ねた
+    figure(matplotlibの図)を組み立てて返す関数。ターミナル版
+    (plot_prediction、画面に表示・ファイル保存する)とWeb版
+    (render_prediction_png、PNG画像として返す。フェーズ8-5)の両方から、
+    この関数を呼び出して同じ描画ロジックを再利用する。
 
     ticker    : ウォッチリストの1件(辞書)
     dates, closes : そのティッカーの全期間の日付・終値のリスト
@@ -113,6 +118,20 @@ def plot_prediction(ticker, dates, closes, patterns, horizon=predict.DEFAULT_HOR
     )
 
     fig.tight_layout(rect=[0, 0.05, 1, 1])
+    return fig
+
+
+def plot_prediction(ticker, dates, closes, patterns, horizon=predict.DEFAULT_HORIZON,
+                     display_days=HISTORY_DISPLAY_DAYS):
+    """
+    直近の値動き(実績)の折れ線に続けて、上位3件の予測ラインを表示する
+    (ターミナル版)。
+
+    ticker    : ウォッチリストの1件(辞書)
+    dates, closes : そのティッカーの全期間の日付・終値のリスト
+    patterns  : predict.build_predicted_lines() が返す予測パターンのリスト
+    """
+    fig = _build_figure(ticker, dates, closes, patterns, horizon=horizon, display_days=display_days)
 
     output_path = "predict_chart.png"
     fig.savefig(output_path, dpi=150)
@@ -124,3 +143,19 @@ def plot_prediction(ticker, dates, closes, patterns, horizon=predict.DEFAULT_HOR
     except Exception as e:
         print("(グラフウィンドウの表示に失敗しました: " + str(e) + ")")
         print("代わりに " + os.path.abspath(output_path) + " を開いて確認してください。")
+
+
+def render_prediction_png(ticker, dates, closes, patterns, horizon=predict.DEFAULT_HORIZON,
+                           display_days=HISTORY_DISPLAY_DAYS):
+    """
+    Web版(フェーズ8-5)用:値動き予測のグラフを、ファイル保存や
+    ウィンドウ表示をせず、PNG画像のバイト列として返す関数。
+    GUI版の値動き予測画面(/api/predict_chart.png)から呼び出す。
+    """
+    fig = _build_figure(ticker, dates, closes, patterns, horizon=horizon, display_days=display_days)
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110)
+    plt.close(fig)  # Webサーバーは動き続けるプロセスなので、使い終わった図は必ず閉じてメモリを解放する
+    buf.seek(0)
+    return buf.getvalue()
