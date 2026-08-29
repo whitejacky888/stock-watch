@@ -413,6 +413,49 @@ async function loadWatchlist() {
   // (フェーズ8-4。ターミナル版と同じく、表示中がちょうど1件のときだけ許可)。
   const visibleCount = items.filter((item) => !item.hidden).length;
   syncModeAvailability(visibleCount);
+  populateTickerSelects(items);
+}
+
+// ニュース・詳細チャート・値動き予測の「銘柄」選択欄を、最新のウォッチ
+// リストに合わせて作り直す(フェーズ8-5)。ニュースは表示中(hidden=False)
+// の銘柄だけを対象にする(ターミナル版のhandle_newsと同じ)。詳細チャート・
+// 値動き予測は、表示・非表示を問わず全銘柄が対象(ターミナル版の
+// handle_candlestick・handle_predictと同じ)。選び直しても、可能な限り
+// 元の選択を保つ(何度もloadWatchlist()が呼ばれても選択が飛ばないように)。
+function populateTickerSelects(items) {
+  const visible = items.filter((item) => !item.hidden);
+
+  const newsSelect = document.getElementById("news-ticker-select");
+  const prevNewsValue = newsSelect.value;
+  newsSelect.innerHTML = "";
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "表示中の銘柄すべて";
+  newsSelect.appendChild(allOption);
+  visible.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.key;
+    opt.textContent = item.label + " (" + item.symbol + ")";
+    newsSelect.appendChild(opt);
+  });
+  if (Array.from(newsSelect.options).some((o) => o.value === prevNewsValue)) {
+    newsSelect.value = prevNewsValue;
+  }
+
+  ["candle-ticker-select", "predict-ticker-select"].forEach((id) => {
+    const select = document.getElementById(id);
+    const prevValue = select.value;
+    select.innerHTML = "";
+    items.forEach((item) => {
+      const opt = document.createElement("option");
+      opt.value = item.key;
+      opt.textContent = item.label + " (" + item.symbol + ")";
+      select.appendChild(opt);
+    });
+    if (Array.from(select.options).some((o) => o.value === prevValue)) {
+      select.value = prevValue;
+    }
+  });
 }
 
 function syncModeAvailability(visibleCount) {
@@ -743,6 +786,292 @@ function sendHeartbeat() {
 sendHeartbeat();
 setInterval(sendHeartbeat, 3000);
 
+// ------------------------------------------------------------
+// 用語集・用語検索(フェーズ8-5)
+// ターミナル版のメニュー「11」「12」(handle_glossary・
+// handle_glossary_search)に対応。検索語に一致した部分は、ターミナル版の
+// ANSIエスケープコードによる色付けの代わりに、HTMLの<mark>タグで
+// 強調表示する。
+// ------------------------------------------------------------
+
+// テキストをHTMLとして安全に組み込めるようにエスケープする
+// (用語集の説明文や、ユーザーが入力した検索語をそのままHTMLに
+// 差し込むと、<script>タグなどとして解釈されてしまう危険があるため)。
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// 正規表現の特殊文字をエスケープする(検索語にたまたま "." や "(" などの
+// 記号が含まれていても、正規表現として誤動作しないようにするため)。
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// text の中で keyword に一致する部分(大文字・小文字を区別しない)を
+// <mark>タグで囲んで返す。keyword が空なら、そのままエスケープして返す。
+function highlightKeyword(text, keyword) {
+  const escaped = escapeHtml(text);
+  if (!keyword) return escaped;
+  const pattern = new RegExp(escapeRegExp(escapeHtml(keyword)), "gi");
+  return escaped.replace(pattern, (match) => "<mark>" + match + "</mark>");
+}
+
+function renderGlossaryList(terms, keyword) {
+  const listEl = document.getElementById("glossary-list");
+  listEl.innerHTML = "";
+  terms.forEach((item) => {
+    const li = document.createElement("li");
+    li.innerHTML =
+      '<div class="glossary-term">■ ' + highlightKeyword(item.term, keyword) + "</div>" +
+      '<div class="glossary-description">' + highlightKeyword(item.description, keyword) + "</div>";
+    listEl.appendChild(li);
+  });
+}
+
+async function loadGlossaryAll() {
+  const res = await fetch("/api/glossary");
+  const data = await res.json();
+  document.getElementById("glossary-status-text").textContent =
+    data.terms.length + " 件の用語を表示しています。";
+  renderGlossaryList(data.terms, "");
+}
+
+document.getElementById("glossary-search-btn").addEventListener("click", async () => {
+  const keyword = document.getElementById("glossary-search-input").value.trim();
+  const statusText = document.getElementById("glossary-status-text");
+  if (keyword === "") {
+    statusText.textContent = "検索したいキーワードを入力してください。";
+    return;
+  }
+  const res = await fetch("/api/glossary_search?keyword=" + encodeURIComponent(keyword));
+  const data = await res.json();
+  if (data.status !== "ok") {
+    statusText.textContent = data.message;
+    renderGlossaryList([], "");
+    return;
+  }
+  if (data.terms.length === 0) {
+    statusText.textContent = "「" + keyword + "」に一致する用語は見つかりませんでした。";
+  } else {
+    statusText.textContent = "「" + keyword + "」の検索結果(" + data.terms.length + " 件)";
+  }
+  renderGlossaryList(data.terms, keyword);
+});
+
+document.getElementById("glossary-search-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    document.getElementById("glossary-search-btn").click();
+  }
+});
+
+document.getElementById("glossary-clear-btn").addEventListener("click", () => {
+  document.getElementById("glossary-search-input").value = "";
+  document.getElementById("glossary-status-text").textContent = "";
+  loadGlossaryAll();
+});
+
+// ------------------------------------------------------------
+// 関連ニュース(フェーズ8-5)
+// ターミナル版のメニュー「13」(handle_news)に対応。
+// ------------------------------------------------------------
+document.getElementById("news-fetch-btn").addEventListener("click", async () => {
+  const key = document.getElementById("news-ticker-select").value;
+  const statusText = document.getElementById("news-status-text");
+  const listEl = document.getElementById("news-list");
+  const btn = document.getElementById("news-fetch-btn");
+
+  if (!key) {
+    statusText.textContent = "表示中の銘柄がありません。先にウォッチリストで銘柄を表示中にしてください。";
+    return;
+  }
+
+  statusText.textContent = "Googleニュース(日本語)から関連ニュースを取得しています...";
+  listEl.innerHTML = "";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/news", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: key }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      statusText.textContent = data.message || "ニュースの取得に失敗しました。";
+      return;
+    }
+    if (data.count === 0) {
+      statusText.textContent = "関連ニュースが見つかりませんでした(銘柄によってはニュースが少ない・無いことがあります)。";
+      return;
+    }
+    statusText.textContent = "関連ニュース(" + data.count + " 件・新しい順)";
+    data.news.forEach((entry) => {
+      const li = document.createElement("li");
+
+      const tag = document.createElement("span");
+      tag.className = "news-tag";
+      tag.textContent = entry.ticker_label;
+      const tagColor = entry.ticker_color || "#888888";
+      tag.style.color = tagColor;
+      tag.style.borderColor = tagColor;
+
+      const titleEl = document.createElement("div");
+      titleEl.className = "news-title";
+      if (entry.link) {
+        const a = document.createElement("a");
+        a.href = entry.link;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = entry.title;
+        titleEl.appendChild(a);
+      } else {
+        titleEl.textContent = entry.title;
+      }
+
+      const headerEl = document.createElement("div");
+      headerEl.className = "news-header";
+      headerEl.appendChild(tag);
+      headerEl.appendChild(titleEl);
+
+      const metaEl = document.createElement("div");
+      metaEl.className = "news-meta";
+      metaEl.textContent = "配信元: " + (entry.publisher || "不明") + " / " + (entry.published || "日時不明");
+
+      li.appendChild(headerEl);
+      li.appendChild(metaEl);
+      listEl.appendChild(li);
+    });
+  } catch (err) {
+    statusText.textContent = "ニュースの取得に失敗しました。通信状況を確認してください。";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ------------------------------------------------------------
+// 詳細チャート(ローソク足・移動平均線・出来高)(フェーズ8-5)
+// ターミナル版のメニュー「14」(handle_candlestick)に対応。表示期間は、
+// 比較グラフと共通の「表示期間」プルダウン(#period-select)の値を使う
+// (ターミナル版が settings["period_index"] を共有しているのと同じ考え方)。
+// ------------------------------------------------------------
+document.getElementById("candle-show-btn").addEventListener("click", async () => {
+  const key = document.getElementById("candle-ticker-select").value;
+  const showMa = document.getElementById("candle-ma-checkbox").checked;
+  const period = currentPeriodIndex();
+  const statusText = document.getElementById("candle-status-text");
+  const img = document.getElementById("candle-image");
+  const btn = document.getElementById("candle-show-btn");
+
+  if (!key) {
+    statusText.textContent = "ウォッチリストに銘柄がありません。";
+    return;
+  }
+
+  statusText.textContent = "データを取得してチャートを描画しています(少し時間がかかることがあります)...";
+  img.style.display = "none";
+  btn.disabled = true;
+  try {
+    // 末尾の "_="(現在時刻)は、同じ銘柄・同じ条件で再表示したときに
+    // ブラウザのキャッシュを使わず、必ず最新のデータで描画し直させるため。
+    const url = "/api/candle_chart.png?key=" + encodeURIComponent(key) +
+      "&period=" + encodeURIComponent(period) +
+      "&ma=" + (showMa ? "1" : "0") +
+      "&_=" + Date.now();
+    const res = await fetch(url);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      statusText.textContent = body.message || "チャートの表示に失敗しました。";
+      return;
+    }
+    const blob = await res.blob();
+    img.src = URL.createObjectURL(blob);
+    img.style.display = "block";
+    statusText.textContent = "";
+  } catch (err) {
+    statusText.textContent = "チャートの表示に失敗しました。通信状況を確認してください。";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ------------------------------------------------------------
+// 値動き予測・売買シグナル(参考情報)(フェーズ8-5)
+// ターミナル版のメニュー「15」(handle_predict)に対応。
+//
+// ★ 重要 ★ ここで表示する内容は、あくまで過去の統計に基づく参考情報で
+// あり、将来の値動きを保証したり、投資判断の根拠となるものではない
+// (要件定義書12章の免責事項)。この注意は、HTML側(templates/index.html)
+// に固定文として常に表示している。
+// ------------------------------------------------------------
+function renderPredictResult(data) {
+  const resultEl = document.getElementById("predict-result");
+  resultEl.innerHTML = "";
+
+  const summaryList = document.createElement("ul");
+  summaryList.className = "predict-pattern-list";
+  data.patterns.forEach((p) => {
+    const li = document.createElement("li");
+    li.textContent =
+      "[予測" + p.index + "] 確率(参考値): " + p.probability_pct.toFixed(0) + "% / " +
+      "方向: " + p.direction_label + " / 類似時期: " + p.based_on_date + "頃 / " +
+      p.days_ahead + "日後の目安株価: " + data.unit + p.target_price.toFixed(2);
+    summaryList.appendChild(li);
+  });
+  resultEl.appendChild(summaryList);
+
+  const signalEl = document.createElement("p");
+  signalEl.className = "predict-signal";
+  signalEl.innerHTML = "<strong>売買シグナル(参考): " + escapeHtml(data.signal_label) + "</strong><br>" +
+    escapeHtml(data.signal_note);
+  resultEl.appendChild(signalEl);
+}
+
+document.getElementById("predict-show-btn").addEventListener("click", async () => {
+  const key = document.getElementById("predict-ticker-select").value;
+  const statusText = document.getElementById("predict-status-text");
+  const resultEl = document.getElementById("predict-result");
+  const img = document.getElementById("predict-image");
+  const btn = document.getElementById("predict-show-btn");
+
+  if (!key) {
+    statusText.textContent = "ウォッチリストに銘柄がありません。";
+    return;
+  }
+
+  statusText.textContent = "[ステップ1/2] データを取得して、過去の似た値動きパターンを探しています...";
+  resultEl.innerHTML = "";
+  img.style.display = "none";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: key }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      statusText.textContent = data.message || "値動き予測の計算に失敗しました。";
+      return;
+    }
+    renderPredictResult(data);
+
+    statusText.textContent = "[ステップ2/2] 予測チャートを描画しています...";
+    const chartRes = await fetch("/api/predict_chart.png?key=" + encodeURIComponent(key) + "&_=" + Date.now());
+    if (chartRes.ok) {
+      const blob = await chartRes.blob();
+      img.src = URL.createObjectURL(blob);
+      img.style.display = "block";
+    }
+    statusText.textContent = "";
+  } catch (err) {
+    statusText.textContent = "値動き予測の表示に失敗しました。通信状況を確認してください。";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // 画面を開いたときに、まず現在のデータで表とグラフを表示する
 loadWatchlist();
 loadChart(currentPeriodIndex());
+loadGlossaryAll();

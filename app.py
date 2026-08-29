@@ -11,21 +11,21 @@ app.py
 います。
 
 【段階的に進めます(要件定義書11章フェーズ8)】
-これまでにGUI化したのは、次の5つです。
+これまでにGUI化したのは、次の9つです。
   ・ウォッチリストの一覧表示(前日比つき)【フェーズ8-1】
   ・複数銘柄の比較グラフ(折れ線・変化率、期間の切り替え)【フェーズ8-1】
   ・銘柄の表示・非表示の切り替え【フェーズ8-2】
   ・銘柄の追加・削除【フェーズ8-3】
   ・実額表示・ソロ表示(1銘柄だけを表示)【フェーズ8-4】
-用語集、ニュース、詳細チャート(ローソク足・移動平均線・出来高)、
-値動き予測といった機能は、まだWeb版には入っていません。次回以降の
-フェーズで少しずつ追加していく予定です。それまでの間、これらの操作は
-今まで通り
-    python main.py
-(ターミナル版)から行ってください。ウォッチリストのデータ
-(watchlist.json)や株価データ(data/フォルダの中のCSV)は、ターミナル版・
-Web版のどちらからも同じファイルを読み書きするので、両方を使い分けても
-内容は共有されます(片方で変更した内容は、もう片方にもすぐ反映されます)。
+  ・用語集・用語検索【フェーズ8-5】
+  ・関連ニュースの表示【フェーズ8-5】
+  ・詳細チャート(ローソク足・移動平均線・出来高)【フェーズ8-5】
+  ・値動き予測・売買シグナル(参考情報)【フェーズ8-5】
+これで、ターミナル版の全15メニューがWeb版でも一通り使えるように
+なりました。ウォッチリストのデータ(watchlist.json)や株価データ
+(data/フォルダの中のCSV)は、ターミナル版・Web版のどちらからも
+同じファイルを読み書きするので、両方を使い分けても内容は共有されます
+(片方で変更した内容は、もう片方にもすぐ反映されます)。
 
 実行方法:
     python app.py
@@ -39,13 +39,41 @@ import signal
 import threading
 import time
 
-from flask import Flask, jsonify, render_template, request
+# matplotlib(candle_chart.py・predict_chart.py・plot_chart.pyが使うグラフ描画
+# ライブラリ)は、何も指定しないと、そのパソコンの環境によって「画面に
+# ウィンドウを表示するための」GUIバックエンド(TkAggなど)を自動的に
+# 選んでしまうことがある。ターミナル版(main.py)はグラフをウィンドウで
+# 見せたいのでこれでよいが、Webサーバー版(このapp.py)は画像(PNG)を
+# 作ってブラウザに送るだけでよく、ウィンドウは不要などころか、GUI
+# バックエンドを使うとサーバーの処理スレッドがGUIツールキットの内部
+# 状態と競合して固まってしまうことがある(実際に、詳細チャートを表示
+# したあと、値動き予測や関連ニュースまで反応しなくなる不具合として
+# 発生した)。そのため、matplotlib.pyplotがどこかで読み込まれるより前に、
+# 画面表示を一切行わない「Agg」バックエンドを明示的に指定しておく。
+# (この指定はこのapp.pyのプロセス内だけに効くので、ターミナル版の
+# ウィンドウ表示には影響しない)
+import matplotlib
+matplotlib.use("Agg")
+
+from flask import Flask, Response, jsonify, render_template, request
 
 import watchlist
 import fetch_data
 import plot_chart
+import glossary
+import news
+import candle_chart
+import predict
+import predict_chart
 
 app = Flask(__name__)
+
+# matplotlib(candle_chart.py・predict_chart.py が使うグラフ描画ライブラリ)は、
+# 複数のリクエストが同時に図を組み立てようとすると、内部状態が競合して
+# おかしな結果になることがある。本ツールは基本的に1人で使うツールだが、
+# 念のため、グラフ画像を作る処理はこのロックで1件ずつ順番に実行する
+# ようにする(フェーズ8-5)。
+_chart_render_lock = threading.Lock()
 
 
 # ==============================================================
@@ -370,6 +398,215 @@ def api_show_all():
 
     message = "全ての銘柄(" + str(len(items)) + " 件)を表示に戻しました。"
     return jsonify({"status": "ok", "message": message})
+
+
+# ==============================================================
+# フェーズ8-5:用語集・用語検索
+# ==============================================================
+
+@app.route("/api/glossary")
+def api_glossary():
+    """
+    用語集の全件をJSONで返すAPI(フェーズ8-5)。
+    ターミナル版のメニュー「11: 用語集を表示する」(main.handle_glossary)
+    と同じデータを、GUI版から見られるようにしたもの。
+    """
+    terms = [{"term": term, "description": description} for term, description in glossary.GLOSSARY]
+    return jsonify({"terms": terms})
+
+
+@app.route("/api/glossary_search")
+def api_glossary_search():
+    """
+    用語集をキーワードで検索するAPI(フェーズ8-5)。
+    ターミナル版のメニュー「12: 用語を検索する」(main.handle_glossary_search)
+    と同じ検索処理(glossary.search_glossary)を利用する。
+    ハイライト表示(検索語に一致した部分を目立たせる)は、ターミナル版では
+    ANSIエスケープコードで行っていたが、GUI版では画面側(script.js)で
+    HTMLの<mark>タグに置き換えて行う。
+    クエリパラメータ: keyword(検索したいキーワード)
+    """
+    keyword = request.args.get("keyword", default="").strip()
+    if keyword == "":
+        return jsonify({"status": "error", "message": "検索したいキーワードを入力してください。"}), 400
+
+    results = glossary.search_glossary(keyword)
+    terms = [{"term": term, "description": description} for term, description in results]
+    return jsonify({"status": "ok", "keyword": keyword, "terms": terms})
+
+
+# ==============================================================
+# フェーズ8-5:関連ニュース
+# ==============================================================
+
+@app.route("/api/news", methods=["POST"])
+def api_news():
+    """
+    関連ニュースを取得するAPI(フェーズ8-5)。
+    ターミナル版のメニュー「13: 関連ニュースを表示する」(main.handle_news)
+    と同じく、表示中(hidden=False)の銘柄の中から選んでもらう想定。
+    Googleニュースの検索RSS(日本語・日本向け)経由で取得するため、
+    インターネット接続が必要(news.py参照)。
+
+    リクエストボディ(JSON)例:
+      {"key": "keycoffee"}        … その銘柄だけのニュース
+      {"key": "all"}              … 表示中の銘柄すべてのニュースをまとめて
+    """
+    payload = request.get_json(silent=True) or {}
+    key = payload.get("key")
+
+    items = watchlist.load_watchlist()
+    visible = [item for item in items if not item["hidden"]]
+    if len(visible) == 0:
+        return jsonify({"status": "error", "message": "表示中の銘柄がありません。先に銘柄を表示中にしてください。"}), 400
+
+    if key == "all":
+        targets = visible
+    else:
+        target = next((item for item in visible if item["key"] == key), None)
+        if target is None:
+            return jsonify({"status": "error", "message": "指定された銘柄が見つからないか、非表示になっています。"}), 404
+        targets = [target]
+
+    all_news = news.fetch_news_for_tickers(targets, limit_per_ticker=5)
+
+    result = []
+    for entry in all_news:
+        result.append({
+            "title": entry["title"],
+            "publisher": entry["publisher"],
+            "link": entry["link"],
+            "published": entry["published"].strftime("%Y-%m-%d %H:%M") if entry["published"] else None,
+            "ticker_label": entry["ticker_label"],
+            "ticker_color": entry["ticker_color"],
+        })
+
+    return jsonify({"status": "ok", "count": len(result), "news": result})
+
+
+# ==============================================================
+# フェーズ8-5:詳細チャート(ローソク足・移動平均線・出来高)
+# ==============================================================
+
+@app.route("/api/candle_chart.png")
+def api_candle_chart_png():
+    """
+    詳細チャート(ローソク足・移動平均線・出来高)のPNG画像を返すAPI
+    (フェーズ8-5)。ターミナル版のメニュー「14」(main.handle_candlestick)
+    と同じく、まずこの1銘柄分のデータだけを取得してから描画する
+    (ウォッチリスト全体のデータ取得より速い)。
+
+    クエリパラメータ:
+      key    銘柄キー(必須)
+      period 表示期間のインデックス(省略時は3=1年。plot_chart.PERIOD_OPTIONS参照)
+      ma     "1"なら移動平均線あり(既定)、"0"ならなし
+    """
+    key = request.args.get("key")
+    period_index = request.args.get("period", default=3, type=int)
+    show_ma = request.args.get("ma", default="1") != "0"
+
+    items = watchlist.load_watchlist()
+    ticker = next((item for item in items if item["key"] == key), None)
+    if ticker is None:
+        return jsonify({"status": "error", "message": "指定された銘柄が見つかりません。"}), 404
+
+    if period_index is None or period_index < 0 or period_index >= len(plot_chart.PERIOD_OPTIONS):
+        period_index = 3
+    period_label, period_days = plot_chart.PERIOD_OPTIONS[period_index]
+
+    fetch_data.fetch_all([ticker])
+
+    with _chart_render_lock:
+        png_bytes = candle_chart.render_candlestick_png(
+            ticker, period_days=period_days, period_label=period_label, show_ma=show_ma)
+
+    if png_bytes is None:
+        return jsonify({"status": "error", "message": "データが取得できませんでした。インターネット接続をご確認ください。"}), 400
+
+    return Response(png_bytes, mimetype="image/png")
+
+
+# ==============================================================
+# フェーズ8-5:値動き予測・売買シグナル(参考情報)
+# ==============================================================
+
+@app.route("/api/predict", methods=["POST"])
+def api_predict():
+    """
+    値動き予測(参考情報)・売買シグナルを計算して返すAPI(フェーズ8-5)。
+    ターミナル版のメニュー「15」(main.handle_predict)と同じく、
+    まずこの1銘柄分のデータを取得してから、過去の似た値動きパターンを探す
+    (predict.build_predicted_lines)。
+
+    ★ 重要 ★ ここで返す内容は、あくまで過去の統計に基づく参考情報であり、
+    将来の値動きを保証したり、投資判断の根拠となるものではない
+    (12章の免責事項)。画面側(script.js)にも、この注意書きを必ず表示する。
+
+    リクエストボディ(JSON)例: {"key": "keycoffee"}
+    """
+    payload = request.get_json(silent=True) or {}
+    key = payload.get("key")
+
+    items = watchlist.load_watchlist()
+    ticker = next((item for item in items if item["key"] == key), None)
+    if ticker is None:
+        return jsonify({"status": "error", "message": "指定された銘柄が見つかりません。"}), 404
+
+    fetch_data.fetch_all([ticker])
+
+    dates, closes, patterns = predict.build_predicted_lines(ticker)
+    if not patterns:
+        return jsonify({"status": "error", "message": "似た値動きパターンが見つかりませんでした(データが少なすぎる可能性があります)。"}), 400
+
+    pattern_list = []
+    for i, pattern in enumerate(patterns):
+        pattern_list.append({
+            "index": i + 1,
+            "probability_pct": pattern["probability_pct"],
+            "direction": pattern["direction"],
+            "direction_label": predict.DIRECTION_LABELS.get(pattern["direction"], pattern["direction"]),
+            "based_on_date": pattern["based_on_date"].strftime("%Y-%m-%d"),
+            "days_ahead": len(pattern["future_prices"]),
+            "target_price": pattern["future_prices"][-1],
+        })
+
+    signal_label, signal_note = predict.summarize_signal(patterns)
+
+    return jsonify({
+        "status": "ok",
+        "ticker_label": ticker["label"],
+        "unit": plot_chart.get_unit(ticker),
+        "patterns": pattern_list,
+        "signal_label": signal_label,
+        "signal_note": signal_note,
+    })
+
+
+@app.route("/api/predict_chart.png")
+def api_predict_chart_png():
+    """
+    値動き予測のグラフ(PNG画像)を返すAPI(フェーズ8-5)。
+    /api/predict でデータ取得・計算が済んでいる前提で、ここでは同じ
+    計算(predict.build_predicted_lines)をもう一度行ってグラフだけを
+    描画する(インターネット通信は行わないため、再計算しても軽い)。
+
+    クエリパラメータ: key(銘柄キー・必須)
+    """
+    key = request.args.get("key")
+
+    items = watchlist.load_watchlist()
+    ticker = next((item for item in items if item["key"] == key), None)
+    if ticker is None:
+        return jsonify({"status": "error", "message": "指定された銘柄が見つかりません。"}), 404
+
+    dates, closes, patterns = predict.build_predicted_lines(ticker)
+    if not patterns:
+        return jsonify({"status": "error", "message": "似た値動きパターンが見つかりませんでした。"}), 400
+
+    with _chart_render_lock:
+        png_bytes = predict_chart.render_prediction_png(ticker, dates, closes, patterns)
+
+    return Response(png_bytes, mimetype="image/png")
 
 
 if __name__ == "__main__":

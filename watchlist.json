@@ -86,7 +86,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "リース・金融・保険など幅広く手がける総合金融グループ",
-    "hidden": true,
+    "hidden": false,
     "color": "#800000"
   },
   {
@@ -96,7 +96,7 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物・食品の卸売",
-    "hidden": true,
+    "hidden": false,
     "color": "#808000"
   },
   {
@@ -106,7 +106,7 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物の卸売(築地市場を拠点とする卸売業者)",
-    "hidden": true,
+    "hidden": false,
     "color": "#000075"
   },
   {
@@ -116,7 +116,7 @@
     "kind": "company",
     "market": "東証プライム",
     "business": "ハム・ソーセージなど食肉加工品の大手(伊藤ハムの持株会社)",
-    "hidden": true,
+    "hidden": false,
     "color": "#808080"
   },
   {
@@ -126,7 +126,7 @@
     "kind": "company",
     "market": "東証スタンダード",
     "business": "水産物の卸売(横浜市中央卸売市場を拠点)",
-    "hidden": true,
+    "hidden": false,
     "color": "#000000"
   },
   {
@@ -136,7 +136,7 @@
     "kind": "company",
     "market": "不明",
     "business": "(未入力)",
-    "hidden": true,
+    "hidden": false,
     "color": "#bcf60c"
   },
   {
@@ -146,7 +146,7 @@
     "kind": "company",
     "market": "不明",
     "business": "(未入力)",
-    "hidden": true,
+    "hidden": false,
     "color": "#c71585"
   },
   {
@@ -156,7 +156,7 @@
     "kind": "company",
     "market": "不明",
     "business": "(未入力)",
-    "hidden": true,
+    "hidden": false,
     "color": "#b8860b"
   },
   {

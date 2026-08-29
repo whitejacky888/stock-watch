@@ -8,13 +8,14 @@
 </head>
 <body>
 <header>
-  <h1>値動きウォッチ(Web版・フェーズ8-4試作)</h1>
+  <h1>値動きウォッチ(Web版・フェーズ8-5試作)</h1>
   <p class="note">
-    今は「ウォッチリスト表示」「比較グラフ表示」「銘柄の表示・非表示」
-    「銘柄の追加・削除」「実額表示・ソロ表示」だけをGUI化しています。用語集、
-    ニュース、詳細チャート(ローソク足など)、値動き予測は、引き続き
-    ターミナル版(<code>python main.py</code>)からご利用ください。データ
-    (ウォッチリスト・株価)はどちらから操作しても共通なので、両方を
+    ターミナル版の全15メニューが、GUI(Web)版でも一通り使えるように
+    なりました。ウォッチリスト表示・比較グラフ表示、銘柄の表示・非表示・
+    追加・削除、実額表示・ソロ表示に加えて、用語集・用語検索、関連ニュース、
+    詳細チャート(ローソク足・移動平均線・出来高)、値動き予測(参考情報)を
+    このページから利用できます。データ(ウォッチリスト・株価)は
+    ターミナル版(<code>python main.py</code>)と共通なので、両方を
     使い分けても内容は同じです。
   </p>
 </header>
@@ -97,6 +98,73 @@
       </thead>
       <tbody></tbody>
     </table>
+  </section>
+
+  <section id="glossary-section">
+    <h2>用語集・用語検索</h2>
+    <p class="note-small">グラフや投資でよく出てくる言葉の解説です。キーワードで検索すると、一致した部分がハイライト表示されます。</p>
+    <div id="glossary-search-row">
+      <input type="text" id="glossary-search-input" placeholder="例: 移動平均、出来高">
+      <button id="glossary-search-btn">検索する</button>
+      <button id="glossary-clear-btn" type="button" class="btn-secondary">検索をクリア(全件表示)</button>
+    </div>
+    <p id="glossary-status-text" class="note-small"></p>
+    <ul id="glossary-list" class="glossary-list"></ul>
+  </section>
+
+  <section id="news-section">
+    <h2>関連ニュース</h2>
+    <p class="note-small">Googleニュース(日本語)から、選んだ銘柄に関連するニュースを取得します(インターネット接続が必要です)。</p>
+    <div id="news-controls-row">
+      <label>
+        銘柄:
+        <select id="news-ticker-select"></select>
+      </label>
+      <button id="news-fetch-btn">ニュースを取得する</button>
+    </div>
+    <p id="news-status-text" class="note-small"></p>
+    <ul id="news-list" class="news-list"></ul>
+  </section>
+
+  <section id="candle-section">
+    <h2>詳細チャート(ローソク足・移動平均線・出来高)</h2>
+    <p class="note-small">上の「表示期間」の設定を使って、選んだ1銘柄のローソク足チャートを表示します。</p>
+    <div id="candle-controls-row">
+      <label>
+        銘柄:
+        <select id="candle-ticker-select"></select>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="candle-ma-checkbox" checked>
+        25日移動平均線を表示する
+      </label>
+      <button id="candle-show-btn">データを取得して表示する</button>
+    </div>
+    <p id="candle-status-text" class="note-small"></p>
+    <div id="candle-image-container">
+      <img id="candle-image" alt="詳細チャート" style="display:none;">
+    </div>
+  </section>
+
+  <section id="predict-section">
+    <h2>値動き予測(参考情報・売買シグナル付き)</h2>
+    <p class="note">
+      ※ 過去の似た値動きパターンをもとにした統計的な参考情報です。将来の
+      値動きを保証するものではなく、投資判断の根拠として使用しないで
+      ください。
+    </p>
+    <div id="predict-controls-row">
+      <label>
+        銘柄:
+        <select id="predict-ticker-select"></select>
+      </label>
+      <button id="predict-show-btn">データを取得して予測を表示する</button>
+    </div>
+    <p id="predict-status-text" class="note-small"></p>
+    <div id="predict-result"></div>
+    <div id="predict-image-container">
+      <img id="predict-image" alt="値動き予測チャート" style="display:none;">
+    </div>
   </section>
 </main>
 
